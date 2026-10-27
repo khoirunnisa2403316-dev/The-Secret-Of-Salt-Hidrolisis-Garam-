@@ -1,0 +1,116 @@
+:root {
+  /* Brand Palette from PRD */
+  --color-fresh-teal: #20B8AA;
+  --color-fresh-teal-hover: #179c90;
+  --color-fresh-teal-light: rgba(32, 184, 170, 0.12);
+  --color-deep-navy: #243B64;
+  --color-deep-navy-dark: #162642;
+  --color-deep-navy-light: rgba(36, 59, 100, 0.08);
+  --color-sunny-yellow: #FFD166;
+  --color-sunny-yellow-hover: #f5c149;
+  --color-sunny-yellow-soft: #fff6db;
+  --color-coral: #FF887A;
+  --color-coral-hover: #f07466;
+  --color-coral-light: rgba(255, 136, 122, 0.12);
+  --color-soft-purple: #A995F5;
+  --color-soft-purple-dark: #8c73e8;
+  --color-soft-purple-light: rgba(169, 149, 245, 0.12);
+  --color-warm-ivory: #FFF9EC;
+
+  /* Neutrals & Surfaces */
+  --color-bg-body: #F7FAFC;
+  --color-surface-white: #FFFFFF;
+  --color-text-title: #1E2D4A;
+  --color-text-body: #4A5B78;
+  --color-text-muted: #7384A0;
+  --color-border: #E5EDF5;
+  --color-border-hover: #D0DFEE;
+
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Fira Code', 'Courier New', monospace;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(36, 59, 100, 0.05);
+  --shadow-md: 0 8px 24px rgba(36, 59, 100, 0.08);
+  --shadow-lg: 0 16px 36px rgba(36, 59, 100, 0.12);
+  --shadow-glow-teal: 0 8px 24px rgba(32, 184, 170, 0.28);
+  --shadow-glow-coral: 0 8px 24px rgba(255, 136, 122, 0.28);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 0.18s ease;
+  --transition-normal: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-body);
+  color: var(--color-text-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Reduced Motion Support per PRD */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--color-fresh-teal);
+  outline-offset: 2px;
+}
+
+/* Utility Containers */
+.container {
+  width: 100%;
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px;
+  }
+}
