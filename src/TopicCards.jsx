@@ -1,8 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function TopicCards() {
   const [activeTopic, setActiveTopic] = useState(null);
   const [quizState, setQuizState] = useState({});
+
+  // Close modal with Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setActiveTopic(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const topics = [
     {
@@ -22,15 +33,16 @@ export default function TopicCards() {
         'Penentuan Pereaksi Pembatas (Limiting Reagent)',
       ],
       detail: {
-        intro: 'Stoikiometri adalah jembatan utama untuk menghitung jumlah zat kimia. Dalam hidrolisis garam, stoikiometri digunakan untuk memastikan apakah kedua pereaksi (asam dan basa) tepat bereaksi habis menghasilkan garam murni.',
-        example: 'Contoh: 100 mL HCl 0,1 M (10 mmol) direaksikan dengan 100 mL NaOH 0,1 M (10 mmol). Keduanya habis bereaksi membentuk 10 mmol NaCl dalam volume total 200 mL ([NaCl] = 0,05 M).',
-        misconceptionTip: '💡 Hindari Miskonsepsi: Jika asam lemah atau basa lemah berlebih, yang terbentuk adalah larutan penyangga (buffer), bukan larutan hidrolisis murni!',
+        intro: 'Stoikiometri adalah jembatan kuantitatif utama kimia. Dalam hidrolisis garam, stoikiometri digunakan untuk memastikan apakah kedua pereaksi (asam dan basa) tepat bereaksi habis menghasilkan garam murni, atau menyisakan pereaksi lemah.',
+        formulaExpl: 'Mol zat (n) dihitung dengan mengalikan molaritas (M) dan volume (V dalam Liter/mL). Pada titik ekuivalen: mol asam ekivalen = mol basa ekivalen.',
+        example: 'Contoh Nyata: 100 mL HCl 0,1 M (10 mmol) direaksikan dengan 100 mL NaOH 0,1 M (10 mmol). Keduanya tepat habis bereaksi membentuk 10 mmol NaCl dalam volume total 200 mL ([NaCl] = 10 mmol / 200 mL = 0,05 M).',
+        misconceptionTip: '💡 Hindari Miskonsepsi Fatal: Jika ada asam lemah atau basa lemah yang BERSISA (berlebih), larutan yang terbentuk adalah Larutan Penyangga (Buffer), BUKAN larutan hidrolisis garam murni!',
         quiz: {
-          question: 'Jika 50 mL CH₃COOH 0,1 M dicampur dengan 50 mL NaOH 0,1 M, sistem apa yang terbentuk?',
+          question: 'Jika 50 mL CH₃COOH 0,1 M dicampur dengan 50 mL NaOH 0,1 M, sistem larutan apa yang terbentuk?',
           options: [
-            { text: 'A. Larutan Penyangga (Buffer Asam)', isCorrect: false, feedback: 'Kurang tepat. Kedua pereaksi memiliki mol sama (5 mmol) sehingga keduanya habis bereaksi dan tidak ada asam lemah berlebih.' },
-            { text: 'B. Larutan Garam Terhidrolisis (CH₃COONa)', isCorrect: true, feedback: 'Tepat sekali! Asam lemah dan basa kuat tepat habis bereaksi membentuk garam CH₃COONa yang terhidrolisis sebagian dan bersifat basa.' },
-            { text: 'C. Larutan Asam Kuat Bebas', isCorrect: false, feedback: 'Tidak tepat. CH₃COOH adalah asam lemah dan dinetralkan sempurna oleh NaOH.' }
+            { text: 'A. Larutan Penyangga (Buffer Asam)', isCorrect: false, feedback: 'Kurang tepat. Kedua pereaksi memiliki mol sama (5 mmol) sehingga keduanya tepat habis bereaksi tanpa ada sisa asam lemah berlebih.' },
+            { text: 'B. Larutan Garam Terhidrolisis (CH₃COONa)', isCorrect: true, feedback: 'Tepat sekali! Asam lemah dan basa kuat tepat habis bereaksi membentuk garam CH₃COONa yang mengalami hidrolisis parsial anion dan menghasilkan larutan basa (pH > 7).' },
+            { text: 'C. Larutan Asam Kuat Bebas', isCorrect: false, feedback: 'Tidak tepat. CH₃COOH adalah asam lemah dan dinetralkan sempurna oleh NaOH menghasilkan garam dan air.' }
           ]
         }
       }
@@ -52,15 +64,16 @@ export default function TopicCards() {
         'Pergeseran Kesetimbangan Hidrolisis Termal',
       ],
       detail: {
-        intro: 'Reaksi asam dan basa selalu disertai pertukaran energi termal. Selain itu, tetapan ionisasi air (Kw) sangat sensitif terhadap perubahan temperatur lingkungan.',
-        example: 'Pada 25°C, Kw = 1,0 × 10⁻¹⁴ (pH netral = 7). Namun pada 60°C, Kw meningkat menjadi ~9,6 × 10⁻¹⁴ sehingga pH netral bergeser ke ~6,51.',
-        misconceptionTip: '💡 Hindari Miskonsepsi: Air murni pada suhu 60°C dengan pH 6,51 tetap NETRAL, bukan asam! Karena [H⁺] tetap sama dengan [OH⁻]. Jangan menganggap pH 7 adalah patokan mutlak di semua suhu!',
+        intro: 'Reaksi asam dan basa selalu disertai pelepasan energi termal (eksoterm). Selain itu, reaksi autoionisasi air (2H₂O ⇌ H₃O⁺ + OH⁻) bersifat endotermik sehingga tetapan ionisasinya (Kw) sangat bergantung pada temperatur larutan.',
+        formulaExpl: 'Pada 25°C: Kw = [H₃O⁺][OH⁻] = 1,0 × 10⁻¹⁴ → pH netral = -log(1,0 × 10⁻⁷) = 7,00. Pada suhu 60°C: Kw meningkat menjadi ~9,6 × 10⁻¹⁴ → pH netral = 6,51.',
+        example: 'Contoh Eksperimen: Pemanasan air murni hingga 60°C menyebabkan nilai pH turun menjadi 6,51. Meski pH < 7, air tersebut tetap NETRAL karena konsentrasi [H₃O⁺] sama persis dengan [OH⁻].',
+        misconceptionTip: '💡 Hindari Miskonsepsi Fatal: Jangan menganggap patokan pH netral adalah angka 7 di semua kondisi suhu! Angka 7 khusus pada suhu 25°C. Karakter "netral" murni ditentukan oleh kesetaraan [H₃O⁺] = [OH⁻].',
         quiz: {
           question: 'Mengapa pH air murni pada suhu 50°C bernilai kurang dari 7 (sekitar 6,63)?',
           options: [
-            { text: 'A. Karena ionisasi air bersifat endoterm sehingga kenaikan suhu meningkatkan Kw dan [H⁺]', isCorrect: true, feedback: 'Tepat sekali! Reaksi autoionisasi air menyerap kalor (endoterm), sehingga pemanasan memperbanyak H⁺ dan OH⁻, membuat pH < 7 namun tetap netral.' },
-            { text: 'B. Karena air berubah menjadi larutan asam klorida', isCorrect: false, feedback: 'Keliru. Air murni hanya mengandung molekul H₂O dan ion H⁺/OH⁻, tidak ada asam klorida.' },
-            { text: 'C. Karena ion OH⁻ menghilang saat dipanaskan', isCorrect: false, feedback: 'Keliru. Jumlah ion OH⁻ justru meningkat sebanding dengan ion H⁺.' }
+            { text: 'A. Karena autoionisasi air bersifat endoterm sehingga kenaikan suhu menggeser kesetimbangan ke kanan, meningkatkan Kw dan [H⁺]', isCorrect: true, feedback: 'Tepat sekali! Autoionisasi air menyerap kalor (endoterm), sehingga pemanasan memperbanyak konsentrasi H₃O⁺ dan OH⁻ secara seimbang. Akibatnya pH < 7 namun sifat larutan tetap netral.' },
+            { text: 'B. Karena air terurai menghasilkan gas asam klorida', isCorrect: false, feedback: 'Keliru. Air murni hanya mengandung molekul H₂O serta ion H⁺ dan OH⁻, tidak ada spesi asam klorida.' },
+            { text: 'C. Karena ion OH⁻ menguap lebih dulu daripada ion H⁺', isCorrect: false, feedback: 'Keliru. Ion di dalam larutan tidak menguap seperti itu. Jumlah OH⁻ tetap sama dengan jumlah H⁺.' }
           ]
         }
       }
@@ -82,15 +95,16 @@ export default function TopicCards() {
         'Hubungan Ka, Kb, dan Tetapan Hidrolisis (Kh)',
       ],
       detail: {
-        intro: 'Konsep pasangan konjugasi Bronsted-Lowry adalah kunci memahami hidrolisis. Spesi konjugasi dari asam atau basa lemah memiliki afinitas cukup kuat untuk merebut atau mendonorkan proton dari/ke molekul air.',
-        example: 'CH₃COO⁻ berasal dari asam lemah CH₃COOH, sehingga merupakan basa konjugasi yang relatif kuat untuk menarik H⁺ dari H₂O: CH₃COO⁻ + H₂O ⇌ CH₃COOH + OH⁻.',
-        misconceptionTip: '💡 Hindari Miskonsepsi: Ion Na⁺ dari NaOH dan Cl⁻ dari HCl tidak mengalami hidrolisis karena merupakan asam/basa konjugasi yang sangat lemah di dalam air.',
+        intro: 'Konsep pasangan konjugasi Bronsted-Lowry adalah kunci memahami reaksi hidrolisis. Spesi konjugasi dari asam lemah atau basa lemah memiliki reaktivitas cukup kuat untuk merebut atau mendonorkan proton dari/ke molekul air.',
+        formulaExpl: 'Semakin lemah suatu asam (Ka makin kecil), semakin kuat basa konjugasinya (Kh = Kw/Ka makin besar). Hal yang sama berlaku pada basa lemah (Kh = Kw/Kb).',
+        example: 'Contoh Reaksi: Anion CH₃COO⁻ berasal dari asam lemah CH₃COOH, sehingga merupakan basa konjugasi yang relatif kuat bereaksi dengan H₂O: CH₃COO⁻(aq) + H₂O(l) ⇌ CH₃COOH(aq) + OH⁻(aq). Sebaliknya, Cl⁻ dari HCl sangat lemah sehingga tidak bereaksi dengan air.',
+        misconceptionTip: '💡 Hindari Miskonsepsi Fatal: Pelarutan garam adalah proses fisik solvasi ion oleh air. Sedangkan hidrolisis adalah reaksi kimia nyata antara ion dengan molekul air yang memecah ikatan H-OH dan mengubah pH!',
         quiz: {
-          question: 'Pada garam amonium nitrat (NH₄NO₃), ion manakah yang bereaksi dengan air (mengalami hidrolisis)?',
+          question: 'Pada larutan garam amonium nitrat (NH₄NO₃), ion manakah yang mengalami hidrolisis (bereaksi dengan air)?',
           options: [
-            { text: 'A. Ion NO₃⁻ saja', isCorrect: false, feedback: 'Kurang tepat. NO₃⁻ berasal dari asam kuat HNO₃ sehingga tidak bereaksi dengan air.' },
-            { text: 'B. Ion NH₄⁺ saja', isCorrect: true, feedback: 'Benar sekali! Kation NH₄⁺ berasal dari basa lemah NH₃, sehingga menghidrolisis air menghasilkan H₃O⁺ (larutan bersifat asam).' },
-            { text: 'C. Kedua ion NH₄⁺ dan NO₃⁻', isCorrect: false, feedback: 'Keliru. Hanya ion dari komponen lemah yang terhidrolisis di dalam air.' }
+            { text: 'A. Ion NO₃⁻ saja', isCorrect: false, feedback: 'Kurang tepat. Anion NO₃⁻ berasal dari asam kuat HNO₃ sehingga merupakan basa konjugasi yang sangat lemah dan tidak bereaksi dengan air.' },
+            { text: 'B. Kation NH₄⁺ saja', isCorrect: true, feedback: 'Benar sekali! Kation NH₄⁺ berasal dari basa lemah NH₃, sehingga bereaksi dengan air mendonorkan proton: NH₄⁺ + H₂O ⇌ NH₃ + H₃O⁺ (membuat larutan bersifat asam).' },
+            { text: 'C. Kedua ion NH₄⁺ dan NO₃⁻ terhidrolisis', isCorrect: false, feedback: 'Keliru. Ion dari komponen kuat tidak terhidrolisis di dalam larutan encer.' }
           ]
         }
       }
@@ -117,7 +131,7 @@ export default function TopicCards() {
           </h2>
           <p className="section-subtitle">
             Kuasai ketiga konsep esensial ini sebelum masuk ke petualangan laboratorium hidrolisis garam.
-            Klik setiap kartu untuk melihat ringkasan ilmiah dan kuis uji pemahaman!
+            Klik setiap kartu untuk membuka ringkasan ilmiah terperinci dan uji pemahaman konsepmu!
           </p>
         </div>
 
@@ -135,7 +149,7 @@ export default function TopicCards() {
             >
               {/* Card Header */}
               <div className="topic-card-top">
-                <div className="topic-icon-wrap">{t.icon}</div>
+                <div className="topic-icon-wrap" aria-hidden="true">{t.icon}</div>
                 <span className="topic-tag">{t.tag}</span>
               </div>
 
@@ -155,7 +169,7 @@ export default function TopicCards() {
                 <ul>
                   {t.concepts.map((concept, i) => (
                     <li key={i}>
-                      <span className="check-bullet">✓</span>
+                      <span className="check-bullet" aria-hidden="true">✓</span>
                       <span>{concept}</span>
                     </li>
                   ))}
@@ -173,7 +187,7 @@ export default function TopicCards() {
                 aria-label={`Pelajari lebih lanjut tentang ${t.name}`}
               >
                 <span>Pelajari Konsep & Kuis Mini</span>
-                <span className="btn-arrow">→</span>
+                <span className="btn-arrow" aria-hidden="true">→</span>
               </button>
             </article>
           ))}
@@ -182,27 +196,38 @@ export default function TopicCards() {
         {/* Quick Help Strip */}
         <div className="prereq-banner">
           <div className="prereq-banner-content">
-            <span className="banner-icon">💡</span>
+            <span className="banner-icon" aria-hidden="true">💡</span>
             <div>
               <strong>Siap melanjutkan ke materi Hidrolisis Garam?</strong>
               <p>Setelah memahami ketiga pilar di atas, kamu dapat langsung menguji prediksi pH larutan di Lab Maya.</p>
             </div>
           </div>
-          <a href="#lab-interaktif" className="btn-banner-action">
-            🔬 Coba Lab Maya
-          </a>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <a href="#lab-interaktif" className="btn-banner-action">
+              🔬 Coba Lab Maya
+            </a>
+            <a href="#kuis-modul-1" className="btn-banner-action" style={{ background: 'var(--color-deep-navy)', color: '#FFFFFF' }}>
+              📝 Kuis Modul 1
+            </a>
+          </div>
         </div>
       </div>
 
       {/* Modal Detail & Interactive Quiz */}
       {activeTopic && (
-        <div className="modal-backdrop" onClick={() => setActiveTopic(null)} role="dialog" aria-modal="true">
+        <div
+          className="modal-backdrop"
+          onClick={() => setActiveTopic(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="topic-modal-title"
+        >
           <div className="modal-container" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title-row">
-                <span className="modal-icon">{activeTopic.icon}</span>
+                <span className="modal-icon" aria-hidden="true">{activeTopic.icon}</span>
                 <div>
-                  <h3 className="modal-title">{activeTopic.name}</h3>
+                  <h3 id="topic-modal-title" className="modal-title">{activeTopic.name}</h3>
                   <span className="modal-tag">{activeTopic.tag}</span>
                 </div>
               </div>
@@ -210,7 +235,7 @@ export default function TopicCards() {
                 type="button"
                 className="modal-close-btn"
                 onClick={() => setActiveTopic(null)}
-                aria-label="Tutup jendela informasi"
+                aria-label="Tutup jendela ringkasan materi"
               >
                 ✕
               </button>
@@ -218,20 +243,31 @@ export default function TopicCards() {
 
             <div className="modal-body">
               <div className="modal-intro-card">
-                <h4>📖 Penjelasan Konsep</h4>
+                <h4>📖 Penjelasan Konsep Inti</h4>
                 <p>{activeTopic.detail.intro}</p>
+
+                <div className="modal-formula-box">
+                  <span className="formula-box-label">Persamaan & Hubungan Kuantitatif:</span>
+                  <code>{activeTopic.formula}</code>
+                  <p className="formula-subtext">{activeTopic.detail.formulaExpl}</p>
+                </div>
+
                 <div className="modal-example-box">
-                  <strong>Penerapan:</strong>
+                  <strong>Penerapan Nyata:</strong>
                   <p>{activeTopic.detail.example}</p>
                 </div>
+
                 <div className="modal-misconception-box">
                   <p>{activeTopic.detail.misconceptionTip}</p>
                 </div>
               </div>
 
-              {/* Interactive Mini Quiz per PRD poin 7 */}
+              {/* Interactive Mini Quiz per PRD poin 7 & AGENTS.md */}
               <div className="modal-quiz-section">
-                <h4>🧠 Uji Pemahaman Cepat</h4>
+                <div className="quiz-header-row">
+                  <h4>🧠 Uji Pemahaman Konsep</h4>
+                  <span className="quiz-badge">1 Pertanyaan Cepat</span>
+                </div>
                 <p className="quiz-question">{activeTopic.detail.quiz.question}</p>
 
                 <div className="quiz-options-list">
@@ -249,7 +285,7 @@ export default function TopicCards() {
                         className={optionClass}
                         onClick={() => handleSelectAnswer(activeTopic.id, idx)}
                       >
-                        <span className="opt-radio">{isSelected ? (opt.isCorrect ? '✓' : '✗') : '○'}</span>
+                        <span className="opt-radio" aria-hidden="true">{isSelected ? (opt.isCorrect ? '✓' : '✗') : '○'}</span>
                         <span className="opt-text">{opt.text}</span>
                       </button>
                     );
@@ -267,8 +303,8 @@ export default function TopicCards() {
                   >
                     <strong>
                       {activeTopic.detail.quiz.options[quizState[activeTopic.id]].isCorrect
-                        ? '🎉 Jawaban Tepat!'
-                        : '⚠️ Perhatikan Miskonsepsi:'}
+                        ? '🎉 Analisis Ilmiah Tepat!'
+                        : '⚠️ Perhatikan Penjelasan Ilmiah:'}
                     </strong>
                     <p>{activeTopic.detail.quiz.options[quizState[activeTopic.id]].feedback}</p>
                   </div>
@@ -282,7 +318,7 @@ export default function TopicCards() {
                 className="btn-modal-dismiss"
                 onClick={() => setActiveTopic(null)}
               >
-                Tutup Ringkasan
+                Tutup Ringkasan Materi
               </button>
             </div>
           </div>
@@ -291,3 +327,4 @@ export default function TopicCards() {
     </section>
   );
 }
+

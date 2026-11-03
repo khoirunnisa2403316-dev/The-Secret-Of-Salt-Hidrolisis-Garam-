@@ -307,6 +307,13 @@
   letter-spacing: -0.03em;
 }
 
+.hero-subtitle {
+  font-size: 1.05rem;
+  color: var(--color-text-body);
+  line-height: 1.55;
+  margin-top: -6px;
+}
+
 .highlight-teal {
   color: var(--color-fresh-teal);
   position: relative;
@@ -1285,3 +1292,254 @@
     align-items: center;
   }
 }
+
+/* --------------------------------------------------------------------------
+   7. WARM IVORY THEME & NEW INTERACTIVE COMPONENT STYLES
+   -------------------------------------------------------------------------- */
+body.theme-warm-ivory {
+  --color-bg-body: #FFF9EC;
+  --color-surface-white: #FFFCF6;
+  --color-border: #EFE6D4;
+  background-color: var(--color-bg-body);
+}
+
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(36, 59, 100, 0.05);
+  color: var(--color-deep-navy);
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  transition: var(--transition-fast);
+}
+
+.theme-toggle-btn:hover {
+  background: rgba(36, 59, 100, 0.1);
+  transform: translateY(-1px);
+}
+
+.theme-toggle-btn.active {
+  background: #FFF0CE;
+  border-color: #FFD166;
+  color: #795548;
+}
+
+.navbar-help-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-sunny-yellow-soft);
+  color: #8c6200;
+  border: 1px solid #ffd87a;
+  padding: 7px 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  transition: var(--transition-fast);
+}
+
+.navbar-help-btn:hover {
+  background: var(--color-sunny-yellow);
+  color: #5c3f00;
+  transform: translateY(-1px);
+}
+
+.mobile-help-item {
+  margin-top: 6px;
+}
+
+.mobile-help-btn {
+  width: 100%;
+  padding: 11px;
+  background: var(--color-sunny-yellow-soft);
+  color: #8c6200;
+  border: 1px solid #ffd87a;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+/* Suhu Switcher & pH Meter */
+.temp-control-pill {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+}
+
+.temp-btn {
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  transition: var(--transition-fast);
+}
+
+.temp-btn.active {
+  background: var(--color-deep-navy);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(36, 59, 100, 0.25);
+}
+
+.salt-badge-type {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.ph-meter-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  border: 1.5px solid;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  min-width: 90px;
+}
+
+.ph-meter-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-deep-navy);
+}
+
+.ph-meter-val {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.temp-alert-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff8e6;
+  border: 1px solid #ffe399;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.76rem;
+  color: #8c6200;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+/* Help Modal Styling */
+.help-modal-card {
+  max-width: 620px;
+}
+
+.help-step-box {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  margin-bottom: 12px;
+}
+
+.help-step-num {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--color-fresh-teal);
+  background: var(--color-fresh-teal-light);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.help-step-box strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--color-deep-navy);
+  margin-bottom: 3px;
+}
+
+.help-step-box p {
+  font-size: 0.84rem;
+  color: var(--color-text-body);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.kb-key {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: #edf2f7;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  color: #2d3748;
+}
+
+/* Topic Modal Formula Box */
+.modal-formula-box {
+  background: #f8fafc;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin: 14px 0;
+}
+
+.formula-box-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.modal-formula-box code {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-deep-navy);
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+.formula-subtext {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.quiz-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.quiz-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--color-deep-navy-light);
+  color: var(--color-deep-navy);
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+

@@ -1,6 +1,7 @@
 import Navbar from './Navbar.jsx';
 import HeroSection from './HeroSection.jsx';
 import TopicCards from './TopicCards.jsx';
+import QuizModule1 from './components/assessment/QuizModule1';
 import './App.css';
 
 export default function App() {
@@ -13,15 +14,19 @@ export default function App() {
 
   return (
     <div className="app-wrapper">
-      {/* 1. Navbar dengan Identitas Media */}
+      {/* 1. Navbar dengan Identitas Media & Navigasi Kuis */}
       <Navbar onStartClick={handleStartLearning} />
 
-      {/* 2. Hero Section dengan Judul & Tombol "Mulai Belajar" */}
+      {/* 2. Main Area Pembelajaran */}
       <main>
+        {/* Hero Section dengan Lab Maya & Fenomena Pemantik */}
         <HeroSection onStartClick={handleStartLearning} />
 
-        {/* 3. Tiga Kartu: Stoikiometri, Termokimia, dan Larutan Asam-Basa */}
+        {/* 3 Pilar Materi Prasyarat Hidrolisis Garam */}
         <TopicCards />
+
+        {/* Kuis Formatif Modul 1: 10 Soal Terverifikasi Hidrolisis Garam */}
+        <QuizModule1 />
       </main>
 
       {/* Footer Akademis & Identitas Kurikulum */}
