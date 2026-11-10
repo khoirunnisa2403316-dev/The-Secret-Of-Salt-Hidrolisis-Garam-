@@ -4,25 +4,85 @@ import {
   getCurrentSession,
   loginUser,
   registerUser,
-  clearSession,
+  logoutUser,
   requestPasswordReset,
-  isSupabaseConfigured,
+  setSession,
+  clearSession,
 } from '../services/authService';
+import {
+  auth,
+  db,
+  isFirebaseConfigured,
+  onAuthStateChanged,
+  doc,
+  getDoc,
+} from '../services/firebase';
 
 export function AuthProvider({ children }) {
   const [session, setSessionState] = useState(() => getCurrentSession());
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
 
-  // Cross-tab session synchronization listener
+  // Real-time Firebase Authentication listener
   useEffect(() => {
+    let unsubscribe = () => {};
+
+    if (isFirebaseConfigured() && auth) {
+      unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+        if (fbUser) {
+          // If we already have a session matching this user, keep it
+          const current = getCurrentSession();
+          if (current?.user?.id === fbUser.uid || current?.user?.uid === fbUser.uid) {
+            return;
+          }
+
+          // Fetch full profile from Firestore if available
+          let profile = {
+            uid: fbUser.uid,
+            id: fbUser.uid,
+            email: fbUser.email,
+            fullName: fbUser.displayName || fbUser.email?.split('@')[0],
+            role: 'student',
+            classGrade: 'XI Fase F',
+            schoolName: 'SMA / MA Laboratorium',
+          };
+
+          if (db) {
+            try {
+              const snap = await getDoc(doc(db, 'users', fbUser.uid));
+              if (snap.exists()) {
+                profile = { ...profile, ...snap.data() };
+              }
+            } catch (err) {
+              console.warn('Firestore profile load notice:', err);
+            }
+          }
+
+          const newSession = setSession(profile, true);
+          setSessionState(newSession);
+        } else {
+          // User signed out in Firebase
+          const current = getCurrentSession();
+          if (current?.user?.authProvider === 'firebase') {
+            clearSession();
+            setSessionState(null);
+          }
+        }
+      });
+    }
+
+    // Cross-tab storage synchronization listener
     const handleStorageChange = (e) => {
       if (e.key === 'chem_auth_session_token') {
         setSessionState(getCurrentSession());
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const clearError = useCallback(() => {
@@ -61,8 +121,8 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
-    clearSession();
+  const logout = async () => {
+    await logoutUser();
     setSessionState(null);
   };
 
@@ -92,7 +152,7 @@ export function AuthProvider({ children }) {
     register,
     logout,
     resetPassword,
-    isSupabaseConfigured: isSupabaseConfigured(),
+    isFirebaseConfigured: isFirebaseConfigured(),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

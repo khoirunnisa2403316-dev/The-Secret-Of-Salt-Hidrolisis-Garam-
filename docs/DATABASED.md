@@ -248,3 +248,93 @@ Sesuai ketentuan **PRD Bab 24.3, Bab 28.2, dan Bab 33 (Keandalan & Privasi)**:
 3. **Penyimpanan Lokal Aman**: Data sensitif (kata sandi, token kedaluwarsa) tidak pernah diletakkan di `localStorage`.
 4. **Idempoten**: Endpoint `sync-attempts` bersifat idempoten menggunakan `attemptId` sebagai *unique key*, sehingga pengiriman ulang tidak akan menggandakan skor kuis.
 
+---
+
+## 5. Integrasi Firebase Authentication & Cloud Firestore Database
+
+Sistem telah terhubung dengan SDK resmi **Firebase v13** (`firebase/auth` dan `firebase/firestore`).
+
+### 5.1 Struktur Koleksi Firestore (NoSQL Document Structure)
+
+#### 1. Koleksi: `users`
+- **Path**: `users/{uid}`
+- **Struktur Dokumen**:
+  ```json
+  {
+    "uid": "aB1cD2eF3gH4...",
+    "email": "siswa.fasef@kimia.sch.id",
+    "fullName": "Ahmad Fauzi",
+    "role": "student",
+    "classGrade": "XI Fase F",
+    "schoolName": "SMA / MA Laboratorium",
+    "authProvider": "firebase",
+    "createdAt": "TIMESTAMP",
+    "lastLoginAt": "TIMESTAMP"
+  }
+  ```
+
+#### 2. Koleksi: `quiz_attempts`
+- **Path**: `quiz_attempts/{attemptId}`
+- **Struktur Dokumen**:
+  ```json
+  {
+    "attemptId": "att_m1_171000_abc1",
+    "userId": "aB1cD2eF3gH4...",
+    "guestSessionId": "guest_171000_xyz9",
+    "moduleId": "modul-1-konsep-dasar",
+    "questionVersion": "1.0.0",
+    "totalQuestions": 10,
+    "correctCount": 9,
+    "score": 90,
+    "startedAt": "2026-11-10T09:00:00.000Z",
+    "completedAt": "2026-11-10T09:08:30.000Z",
+    "syncedAt": "TIMESTAMP",
+    "answers": {
+      "m1-q1": {
+        "questionId": "m1-q1",
+        "selectedOption": "B",
+        "isCorrect": true,
+        "answeredAt": "2026-11-10T09:01:00.000Z"
+      }
+    }
+  }
+  ```
+
+### 5.2 Aturan Keamanan Firestore (Security Rules)
+
+Tempelkan aturan berikut di tab **Firestore Database > Rules**:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Profil pengguna hanya dapat dibaca dan ditulis oleh pemilik akun
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Riwayat percobaan kuis siswa
+    match /quiz_attempts/{attemptId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        request.auth.token.role == 'teacher'
+      );
+      allow create, update: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow delete: if false; // Riwayat evaluasi tidak boleh dihapus sembarangan
+    }
+  }
+}
+```
+
+### 5.3 Konfigurasi Variabel Lingkungan (`.env.local`)
+Kredensial dari Firebase Console diinjeksikan melalui file `.env.local`:
+```env
+VITE_FIREBASE_API_KEY=AIzaSy...
+VITE_FIREBASE_AUTH_DOMAIN=proyek-kimia.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=proyek-kimia
+VITE_FIREBASE_STORAGE_BUCKET=proyek-kimia.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=1234567890
+VITE_FIREBASE_APP_ID=1:1234567890:web:abcdef...
+```
+
+

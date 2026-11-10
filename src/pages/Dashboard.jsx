@@ -1,38 +1,73 @@
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import atomMolecule from '../assets/images/atom-molecule.svg';
+import { fetchUserQuizHistoryFromFirestore } from '../services/firestoreQuizService';
+import { isFirebaseConfigured } from '../services/firebase';
 
 /**
  * Dashboard Page — Media Pembelajaran Kimia
  * Protected learning dashboard for authenticated students & teachers.
- * Displays user profile, module progress, synchronized quiz records,
- * and quick shortcuts to the interactive learning materials.
+ * Displays user profile, Firebase connection status, module progress,
+ * Cloud Firestore synchronized quiz records, and learning shortcuts.
  */
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const [quizHistory, setQuizHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [showConfigGuide, setShowConfigGuide] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
     navigate('/login', { replace: true });
   };
 
-  // Retrieve user's linked quiz history if available
-  const getUserQuizHistory = () => {
-    if (!user?.id) return [];
-    try {
-      const raw = localStorage.getItem(`chem_user_history_${user.id}`) ||
-                  localStorage.getItem('secret_of_salt_guest_m1_history');
-      if (!raw) return [];
-      return JSON.parse(raw);
-    } catch {
-      return [];
-    }
-  };
+  useEffect(() => {
+    let isMounted = true;
 
-  const quizHistory = getUserQuizHistory();
+    async function loadHistory() {
+      setLoadingHistory(true);
+
+      // 1. Initial load from local cache
+      let localAttempts = [];
+      if (user?.id) {
+        try {
+          const raw = localStorage.getItem(`chem_user_history_${user.id}`) ||
+                      localStorage.getItem('secret_of_salt_guest_m1_history');
+          if (raw) localAttempts = JSON.parse(raw);
+        } catch {
+          // ignore
+        }
+      }
+
+      if (isMounted && localAttempts.length > 0) {
+        setQuizHistory(localAttempts);
+      }
+
+      // 2. Fetch live from Cloud Firestore if configured
+      if (isFirebaseConfigured() && user?.id) {
+        try {
+          const firestoreAttempts = await fetchUserQuizHistoryFromFirestore(user.id);
+          if (isMounted && firestoreAttempts.length > 0) {
+            setQuizHistory(firestoreAttempts);
+          }
+        } catch (err) {
+          console.warn('Firestore history load notice:', err);
+        }
+      }
+
+      if (isMounted) setLoadingHistory(false);
+    }
+
+    loadHistory();
+    return () => { isMounted = false; };
+  }, [user]);
+
   const latestAttempt = quizHistory[0] || null;
+  const isCloudActive = isFirebaseConfigured();
 
   return (
     <div className="min-h-screen bg-[#F0FDFA] flex flex-col font-sans text-[#134E4A] selection:bg-[#5EEAD4]">
@@ -93,6 +128,81 @@ export default function Dashboard() {
 
       {/* Main Dashboard Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+        {/* Firebase Status Banner */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">
+              {isCloudActive ? '🔥' : '⚙️'}
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <strong className="text-sm font-bold text-[#134E4A]">
+                  {isCloudActive
+                    ? 'Firebase Authentication & Cloud Firestore Aktif'
+                    : 'Modul Sesi & Database Siap'}
+                </strong>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    isCloudActive
+                      ? 'bg-[#DCFCE7] text-[#16A34A]'
+                      : 'bg-[#FEF3C7] text-[#D97706]'
+                  }`}
+                >
+                  {isCloudActive ? 'Terhubung ke Cloud' : 'Kunci .env.local Diperlukan'}
+                </span>
+              </div>
+              <p className="text-xs text-[#64748B] mt-0.5">
+                {isCloudActive
+                  ? 'Data pendaftaran akun, login, dan riwayat kuis tersinkronisasi langsung ke koleksi Firestore.'
+                  : 'Sistem siap terhubung ke Firebase Console Anda melalui file .env.local.'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowConfigGuide((prev) => !prev)}
+            className="text-xs font-bold text-[#0F766E] hover:text-[#115E59] bg-[#F0FDFA] px-3 py-1.5 rounded-xl border border-[#CCFBF1] transition-colors"
+          >
+            {showConfigGuide ? 'Tutup Panduan ▲' : 'Panduan Kunci Firebase ▼'}
+          </button>
+        </div>
+
+        {/* Collapsible Firebase Setup Guide */}
+        {showConfigGuide && (
+          <div className="mb-8 p-6 rounded-2xl bg-[#FFFFFF] border-2 border-[#5EEAD4] shadow-md animate-fadeIn">
+            <h3 className="text-base font-extrabold text-[#134E4A] flex items-center gap-2 mb-2">
+              <span>🔥</span>
+              <span>Langkah Menghubungkan Firebase Console ke Proyek Ini</span>
+            </h3>
+            <p className="text-xs sm:text-sm text-[#64748B] mb-4">
+              Buka <strong>Firebase Console</strong> Anda di{' '}
+              <a
+                href="https://console.firebase.google.com"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#0F766E] font-bold underline"
+              >
+                console.firebase.google.com
+              </a>
+              , buka <em>Project Settings</em> &gt; <em>General</em> &gt; <em>Your apps</em> (Web app), lalu salin kunci ke file <code>.env.local</code> pada direktori utama:
+            </p>
+
+            <pre className="p-4 rounded-xl bg-slate-900 text-[#5EEAD4] text-xs font-mono overflow-x-auto select-all leading-relaxed">
+{`VITE_FIREBASE_API_KEY=AIzaSy...
+VITE_FIREBASE_AUTH_DOMAIN=nama-proyek.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=nama-proyek
+VITE_FIREBASE_STORAGE_BUCKET=nama-proyek.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=1234567890
+VITE_FIREBASE_APP_ID=1:1234567890:web:abcdef...`}
+            </pre>
+
+            <p className="text-xs text-[#164E63] mt-3 font-medium">
+              💡 <em>Tips Firestore:</em> Pastikan Anda telah membuat database di tab <strong>Firestore Database</strong> (mode <code>Production</code> atau <code>Test</code>) dan mengaktifkan <strong>Authentication &gt; Sign-in method &gt; Email/Password</strong>.
+            </p>
+          </div>
+        )}
+
         {/* Welcome Hero Banner */}
         <div className="relative rounded-3xl bg-linear-to-r from-[#0F766E] via-[#115E59] to-[#164E63] text-white p-6 sm:p-10 shadow-lg overflow-hidden mb-8">
           <div className="relative z-10 max-w-2xl">
@@ -103,7 +213,7 @@ export default function Dashboard() {
               Halo, {user?.fullName || 'Siswa Kimia'}!
             </h1>
             <p className="mt-2 text-sm sm:text-base text-[#E6FFFA] leading-relaxed">
-              Selamat datang di pusat petualangan belajar kimia Anda. Seluruh progres belajar, simulasi laboratorium maya, dan evaluasi kuis Anda tersimpan secara terstruktur.
+              Selamat datang di pusat petualangan belajar kimia Anda. Seluruh progres belajar, simulasi laboratorium maya, dan evaluasi kuis Anda tersimpan secara terstruktur di database.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -167,7 +277,7 @@ export default function Dashboard() {
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-black text-[#134E4A]">
-                  {latestAttempt ? latestAttempt.score : 'Belum Ada'}
+                  {latestAttempt ? latestAttempt.score : (loadingHistory ? '...' : 'Belum Ada')}
                 </span>
                 {latestAttempt && <span className="text-xs text-[#64748B]">/ 100</span>}
               </div>
@@ -207,61 +317,83 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Learning Pathways Grid */}
-        <h2 className="text-lg sm:text-xl font-bold text-[#134E4A] mb-4">
-          Petualangan Pembelajaran Kimia Anda
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
-          {/* Pathway 1 */}
-          <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs hover:border-[#5EEAD4] transition-all">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-[#0F766E] bg-[#CCFBF1] px-2.5 py-1 rounded-full">
-                Laboratorium Maya
-              </span>
-              <span className="text-xl">🔬</span>
+        {/* Real-time Firestore Synchronized Quiz Records */}
+        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs mb-8">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#E2E8F0]">
+            <div>
+              <h2 className="text-base font-bold text-[#134E4A]">
+                Riwayat Evaluasi Kuis di Database Cloud ({quizHistory.length})
+              </h2>
+              <p className="text-xs text-[#64748B]">
+                Data percobaan kuis formatif tersinkronisasi dengan akun Firestore Anda.
+              </p>
             </div>
-            <h3 className="text-base font-bold text-[#134E4A]">
-              Simulasi Partikel & pH Garam
-            </h3>
-            <p className="text-xs sm:text-sm text-[#64748B] mt-1.5 leading-relaxed">
-              Amati perilaku mikroskopis ion NaCl, NH₄Cl, CH₃COONa, dan NH₄CN dalam air. Uji pergeseran pH pada suhu 25°C dan 60°C untuk mencegah miskonsepsi netralisasi.
-            </p>
-            <div className="mt-4">
-              <a
-                href="/#lab-interaktif"
-                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#0F766E] hover:text-[#115E59]"
-              >
-                <span>Buka Simulasi Lab</span>
-                <span>→</span>
-              </a>
-            </div>
+            <a
+              href="/#kuis-modul-1"
+              className="py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-[#0F766E] hover:bg-[#115E59] transition-colors"
+            >
+              + Coba Kuis Baru
+            </a>
           </div>
 
-          {/* Pathway 2 */}
-          <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs hover:border-[#5EEAD4] transition-all">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-[#164E63] bg-[#E0F2FE] px-2.5 py-1 rounded-full">
-                Kuis Terverifikasi
-              </span>
-              <span className="text-xl">📝</span>
-            </div>
-            <h3 className="text-base font-bold text-[#134E4A]">
-              Uji Kompetensi: 10 Butir Terverifikasi
-            </h3>
-            <p className="text-xs sm:text-sm text-[#64748B] mt-1.5 leading-relaxed">
-              Kerjakan kuis formatif dengan pembekuan jawaban diagnostik, pembahasan ilmiah step-by-step, serta penyimpanan otomatis ke riwayat perangkat dan akun Anda.
-            </p>
-            <div className="mt-4">
-              <a
-                href="/#kuis-modul-1"
-                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#0F766E] hover:text-[#115E59]"
-              >
-                <span>Mulai Mengerjakan Kuis</span>
-                <span>→</span>
+          {quizHistory.length === 0 ? (
+            <div className="py-8 text-center text-[#64748B] text-sm">
+              <span className="text-2xl block mb-2">📝</span>
+              <p>Belum ada riwayat kuis tersimpan di akun Anda.</p>
+              <a href="/#kuis-modul-1" className="text-[#0F766E] font-bold hover:underline mt-1 inline-block text-xs">
+                Mulai kerjakan Kuis Modul 1 sekarang →
               </a>
             </div>
-          </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-[#E2E8F0] text-[#64748B]">
+                    <th className="py-2.5 px-3 font-semibold">Percobaan ID</th>
+                    <th className="py-2.5 px-3 font-semibold">Tanggal Selesai</th>
+                    <th className="py-2.5 px-3 font-semibold">Butir Benar</th>
+                    <th className="py-2.5 px-3 font-semibold">Skor Akhir</th>
+                    <th className="py-2.5 px-3 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {quizHistory.map((item) => (
+                    <tr key={item.attemptId || item.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-[#164E63]">
+                        {item.attemptId ? item.attemptId.slice(0, 16) : 'att_m1'}
+                      </td>
+                      <td className="py-2.5 px-3 text-[#64748B]">
+                        {new Date(item.completedAt).toLocaleString('id-ID')}
+                      </td>
+                      <td className="py-2.5 px-3 font-medium">
+                        {item.correctCount} / {item.totalQuestions || 10}
+                      </td>
+                      <td className="py-2.5 px-3 font-extrabold">
+                        <span
+                          className={
+                            item.score >= 75 ? 'text-[#16A34A]' : 'text-[#DC2626]'
+                          }
+                        >
+                          {item.score}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            item.score >= 75
+                              ? 'bg-[#DCFCE7] text-[#16A34A]'
+                              : 'bg-[#FEE2E2] text-[#DC2626]'
+                          }`}
+                        >
+                          {item.score >= 75 ? 'Tuntas' : 'Perlu Penguatan'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
     </div>

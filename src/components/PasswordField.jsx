@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import './Auth.css';
 
 /**
  * PasswordField Component — Media Pembelajaran Kimia
  * Reusable password input with lock icon, show/hide toggle, and error handling.
+ * Includes explicit padding guarantees so text never overlaps left icon or eye toggle.
  */
 
 export default function PasswordField({
@@ -23,31 +25,28 @@ export default function PasswordField({
   const errorId = `${inputId}-error`;
 
   return (
-    <div className="w-full mb-4">
+    <div className="auth-field-group">
       {/* Label Row */}
-      <div className="flex items-center justify-between mb-1.5">
-        <label
-          htmlFor={inputId}
-          className="block text-sm font-semibold text-[#134E4A]"
-        >
+      <div className="auth-label-row">
+        <label htmlFor={inputId} className="auth-label">
           {label}
-          {required && <span className="text-[#DC2626] ml-1" aria-hidden="true">*</span>}
+          {required && (
+            <span className="auth-label-required" aria-hidden="true">
+              *
+            </span>
+          )}
         </label>
         {rightAction && (
-          <div className="text-xs sm:text-sm font-medium">
+          <div className="auth-forgot-link-wrapper">
             {rightAction}
           </div>
         )}
       </div>
 
-      <div className="relative rounded-xl shadow-xs transition-all duration-200">
+      <div className="auth-input-container">
         {/* Left Lock Icon */}
-        <div
-          className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#64748B]"
-          aria-hidden="true"
-        >
+        <div className="auth-left-icon" aria-hidden="true">
           <svg
-            className="w-5 h-5"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -72,11 +71,13 @@ export default function PasswordField({
           disabled={disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
-          className={`w-full py-2.5 sm:py-3 pl-10 sm:pl-11 pr-11 rounded-xl text-sm sm:text-base text-[#134E4A] bg-[#FFFFFF] border transition-all duration-200 placeholder:text-[#94A3B8] outline-none ${
-            error
-              ? 'border-[#DC2626] focus:border-[#DC2626] focus:ring-3 focus:ring-[#DC2626]/20 bg-[#FEF2F2]'
-              : 'border-[#CBD5E1] hover:border-[#94A3B8] focus:border-[#0F766E] focus:ring-3 focus:ring-[#0F766E]/20'
-          } ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-50' : ''}`}
+          style={{
+            paddingLeft: '44px',
+            paddingRight: '44px',
+          }}
+          className={`auth-input auth-input-with-icon auth-input-password ${
+            error ? 'auth-input-error' : ''
+          }`}
         />
 
         {/* Right Toggle Show/Hide Button */}
@@ -84,14 +85,13 @@ export default function PasswordField({
           type="button"
           onClick={() => setShowPassword((prev) => !prev)}
           disabled={disabled}
-          className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#64748B] hover:text-[#0F766E] transition-colors focus:outline-none focus:text-[#0F766E]"
+          className="auth-eye-button"
           aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
           title={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
         >
           {showPassword ? (
             /* Eye Off Icon */
             <svg
-              className="w-5 h-5"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -103,9 +103,8 @@ export default function PasswordField({
               <line x1="1" y1="1" x2="23" y2="23" />
             </svg>
           ) : (
-            /* Eye Icon */
+            /* Eye On Icon */
             <svg
-              className="w-5 h-5"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -122,13 +121,8 @@ export default function PasswordField({
 
       {/* Error Message */}
       {error && (
-        <p
-          id={errorId}
-          role="alert"
-          className="mt-1.5 text-xs sm:text-sm text-[#DC2626] flex items-center gap-1 font-medium animate-fadeIn"
-        >
+        <p id={errorId} role="alert" className="auth-field-error">
           <svg
-            className="w-4 h-4 shrink-0 text-[#DC2626]"
             viewBox="0 0 20 20"
             fill="currentColor"
             aria-hidden="true"
@@ -145,4 +139,3 @@ export default function PasswordField({
     </div>
   );
 }
-

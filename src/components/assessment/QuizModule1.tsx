@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/useAuth';
+import { saveQuizAttemptToFirestore } from '../../services/firestoreQuizService';
+import { isFirebaseConfigured } from '../../services/firebase';
 import {
   soalHidrolisisGaram,
   SOAL_VERSION,
@@ -22,6 +25,7 @@ import {
 import './QuizModule1.css';
 
 export default function QuizModule1() {
+  const { user } = useAuth();
   const [session, setSession] = useState<GuestQuizSession>(() => {
     const loaded = loadGuestSession();
     if (loaded.success && loaded.data) {
@@ -175,6 +179,11 @@ export default function QuizModule1() {
           : [newHistoryItem, ...history];
 
       persistHistory(updatedHistoryList);
+
+      // Save to Cloud Firestore if student is authenticated
+      if (user?.id) {
+        saveQuizAttemptToFirestore(newHistoryItem, user.id);
+      }
     }
 
     persistSession({
@@ -195,6 +204,7 @@ export default function QuizModule1() {
     persistSession,
     session,
     totalQuestions,
+    user,
   ]);
 
   // Reset active draft only
@@ -300,9 +310,16 @@ export default function QuizModule1() {
 
           {/* Session Metadata & Storage Indicators */}
           <div className="quiz-session-meta">
-            <span className="meta-chip" title="ID Sesi Tamu Anda">
-              👤 Sesi Guest: <code>{session.guestSessionId.slice(0, 14)}...</code>
-            </span>
+            {user ? (
+              <span className="meta-chip chip-storage-ok" title="Tersinkronisasi ke Akun Siswa">
+                👤 Siswa: <strong>{user.fullName?.split(' ')[0]}</strong>
+                {isFirebaseConfigured() && <span style={{ marginLeft: 4 }}>🔥 (Firestore Cloud)</span>}
+              </span>
+            ) : (
+              <span className="meta-chip" title="ID Sesi Tamu Anda">
+                👤 Sesi Guest: <code>{session.guestSessionId.slice(0, 14)}...</code>
+              </span>
+            )}
             <span className="meta-chip" title="ID Percobaan Kuis Aktif">
               🔖 Percobaan ID: <code>{session.attemptId.slice(0, 16)}</code>
             </span>

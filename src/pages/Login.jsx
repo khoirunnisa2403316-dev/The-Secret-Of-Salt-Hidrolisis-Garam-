@@ -200,7 +200,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-3 px-4 rounded-xl font-bold text-white bg-[#0F766E] hover:bg-[#115E59] active:scale-[0.99] shadow-md shadow-[#0F766E]/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+          className="auth-submit-btn"
         >
           {isLoading ? (
             <>

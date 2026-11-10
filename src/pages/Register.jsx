@@ -215,29 +215,42 @@ export default function Register() {
 
         {/* Password Strength Indicator */}
         {formData.password && (
-          <div className="mb-4 -mt-2">
-            <div className="flex items-center justify-between text-xs text-[#64748B] mb-1">
+          <div className="auth-strength-box">
+            <div className="auth-strength-header">
               <span>Keamanan kata sandi:</span>
-              <span className="font-bold">{strength.label}</span>
+              <span className="auth-strength-label">{strength.label}</span>
             </div>
-            <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex gap-1">
+            <div className="auth-strength-track">
               <div
-                className={`h-full transition-all duration-300 ${
-                  strength.level >= 1 ? strength.color : 'bg-transparent'
-                }`}
-                style={{ width: '33.3%' }}
+                className="auth-strength-segment"
+                style={{
+                  backgroundColor:
+                    strength.level >= 1
+                      ? strength.level === 1
+                        ? '#DC2626'
+                        : strength.level === 2
+                        ? '#F59E0B'
+                        : '#16A34A'
+                      : 'transparent',
+                }}
               />
               <div
-                className={`h-full transition-all duration-300 ${
-                  strength.level >= 2 ? strength.color : 'bg-transparent'
-                }`}
-                style={{ width: '33.3%' }}
+                className="auth-strength-segment"
+                style={{
+                  backgroundColor:
+                    strength.level >= 2
+                      ? strength.level === 2
+                        ? '#F59E0B'
+                        : '#16A34A'
+                      : 'transparent',
+                }}
               />
               <div
-                className={`h-full transition-all duration-300 ${
-                  strength.level >= 3 ? strength.color : 'bg-transparent'
-                }`}
-                style={{ width: '33.3%' }}
+                className="auth-strength-segment"
+                style={{
+                  backgroundColor:
+                    strength.level >= 3 ? '#16A34A' : 'transparent',
+                }}
               />
             </div>
           </div>
@@ -258,7 +271,7 @@ export default function Register() {
         />
 
         {/* Terms notice */}
-        <p className="text-xs text-[#64748B] mb-6 leading-relaxed">
+        <p style={{ fontSize: '0.78rem', color: '#64748B', marginBottom: '1.25rem', lineHeight: '1.45' }}>
           Dengan mendaftar, Anda menyetujui ketentuan penggunaan dan pedoman pembelajaran mandiri Fase F.
         </p>
 
@@ -266,7 +279,7 @@ export default function Register() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-3 px-4 rounded-xl font-bold text-white bg-[#0F766E] hover:bg-[#115E59] active:scale-[0.99] shadow-md shadow-[#0F766E]/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+          className="auth-submit-btn"
         >
           {isLoading ? (
             <>

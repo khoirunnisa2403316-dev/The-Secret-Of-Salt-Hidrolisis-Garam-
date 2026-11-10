@@ -1,27 +1,63 @@
 /**
  * Authentication Service — Media Pembelajaran Kimia
- * Implements Supabase / Backend auth integration structure with
- * secure cryptographic session engine (SHA-256 hashing, no plaintext passwords,
- * zero localStorage password persistence) per PRD Bab 4, 8, & 31.
+ * Seamless integration with Firebase Authentication & Cloud Firestore
+ * with graceful fallback to secure cryptographic local session engine
+ * (SHA-256 hashing, zero plain-text passwords) when env keys are pending.
  */
+
+import {
+  auth,
+  db,
+  isFirebaseConfigured,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile,
+  doc,
+  setDoc,
+  getDoc,
+  serverTimestamp,
+} from './firebase';
+import { migrateLocalGuestAttemptsToFirestore } from './firestoreQuizService';
 
 const STORAGE_KEYS = {
   ACTIVE_SESSION: 'chem_auth_session_token',
   AUTH_USERS: 'chem_registered_users_registry',
-  GUEST_SESSION: 'secret_of_salt_guest_m1_session',
   GUEST_HISTORY: 'secret_of_salt_guest_m1_history',
 };
 
-// Check if external Supabase credentials are configured via environment variables
-export const isSupabaseConfigured = () => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  return Boolean(url && anonKey && url.startsWith('http'));
-};
+/**
+ * Translate Firebase error codes into friendly Indonesian messages
+ */
+function translateFirebaseError(error) {
+  const code = error?.code || '';
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'Email ini sudah terdaftar. Silakan masuk menggunakan akun Anda.';
+    case 'auth/invalid-email':
+      return 'Format email tidak valid (contoh: nama@sekolah.sch.id).';
+    case 'auth/operation-not-allowed':
+      return 'Metode autentikasi Email/Password belum diaktifkan di Firebase Console.';
+    case 'auth/weak-password':
+      return 'Kata sandi terlalu lemah. Gunakan minimal 8 karakter dengan kombinasi huruf dan angka.';
+    case 'auth/user-not-found':
+      return 'Email belum terdaftar dalam sistem kami. Silakan buat akun baru.';
+    case 'auth/wrong-password':
+      return 'Kata sandi salah. Silakan periksa kembali.';
+    case 'auth/invalid-credential':
+      return 'Email atau kata sandi tidak sesuai. Silakan periksa kembali akun Anda.';
+    case 'auth/too-many-requests':
+      return 'Terlalu banyak percobaan gagal. Silakan tunggu beberapa saat lagi atau atur ulang kata sandi.';
+    case 'auth/network-request-failed':
+      return 'Koneksi jaringan terputus. Pastikan perangkat Anda terhubung ke internet.';
+    default:
+      return error?.message || 'Terjadi kesalahan pada server autentikasi.';
+  }
+}
 
 /**
- * Hash a password string using Browser SubtleCrypto SHA-256
- * Ensuring passwords are NEVER stored or transmitted in plain text.
+ * Hash a password string using SubtleCrypto SHA-256 for local fallback mode
  */
 export async function hashPassword(plainPassword) {
   const encoder = new TextEncoder();
@@ -32,13 +68,12 @@ export async function hashPassword(plainPassword) {
 }
 
 /**
- * Helper to get registered users registry (hashes only, no plain passwords)
+ * Helper to get local registered users registry (hashes only, no plain passwords)
  */
 function getUsersRegistry() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.AUTH_USERS);
     if (!raw) {
-      // Seed default demo chemistry student account for immediate testing
       const defaultUsers = [
         {
           id: 'usr_demo_student_01',
@@ -47,7 +82,6 @@ function getUsersRegistry() {
           role: 'student',
           classGrade: 'XI Fase F',
           schoolName: 'SMA Negeri 1 Pembelajaran',
-          // Pre-hashed "Kimia2026!"
           passwordHash: '8b7fcae8ce981c2bfaae3bdfdfa785d064c58cfb9be92a969b8fe1ad1568e21a',
           createdAt: new Date().toISOString(),
         },
@@ -61,9 +95,6 @@ function getUsersRegistry() {
   }
 }
 
-/**
- * Save users registry
- */
 function saveUsersRegistry(users) {
   try {
     localStorage.setItem(STORAGE_KEYS.AUTH_USERS, JSON.stringify(users));
@@ -73,7 +104,7 @@ function saveUsersRegistry(users) {
 }
 
 /**
- * Get current authenticated user session
+ * Get current active session
  */
 export function getCurrentSession() {
   try {
@@ -82,7 +113,6 @@ export function getCurrentSession() {
     if (!raw) return null;
     const session = JSON.parse(raw);
 
-    // Check expiration (24 hours)
     if (session.expiresAt && new Date(session.expiresAt) < new Date()) {
       clearSession();
       return null;
@@ -95,18 +125,20 @@ export function getCurrentSession() {
 }
 
 /**
- * Save session securely (stores session token and user profile, NEVER password)
+ * Save session securely (stores session token and sanitized profile, NEVER passwords)
  */
 export function setSession(user, rememberMe = true) {
   const sessionData = {
-    token: `chem_jwt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    token: `chem_sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
     user: {
-      id: user.id,
+      id: user.uid || user.id,
+      uid: user.uid || user.id,
       email: user.email,
-      fullName: user.fullName,
+      fullName: user.displayName || user.fullName || user.email.split('@')[0],
       role: user.role || 'student',
       classGrade: user.classGrade || 'XI Fase F',
       schoolName: user.schoolName || 'SMA / MA Laboratorium',
+      authProvider: isFirebaseConfigured() ? 'firebase' : 'local_secure',
     },
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -118,27 +150,21 @@ export function setSession(user, rememberMe = true) {
     try {
       localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, payload);
     } catch {
-      // ignore storage quota error
+      // ignore
     }
   }
 
-  // Link any guest quiz attempts to this newly authenticated user
-  migrateGuestQuizAttempts(user.id);
+  // Link local guest quiz attempts
+  migrateGuestQuizAttempts(sessionData.user.id);
 
   return sessionData;
 }
 
-/**
- * Clear session upon logout
- */
 export function clearSession() {
   sessionStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
   localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
 }
 
-/**
- * Migrate guest quiz attempts to authenticated user (PRD Bab 4 & DATABASED.md)
- */
 function migrateGuestQuizAttempts(userId) {
   try {
     const rawHistory = localStorage.getItem(STORAGE_KEYS.GUEST_HISTORY);
@@ -152,74 +178,18 @@ function migrateGuestQuizAttempts(userId) {
       }
     }
   } catch (err) {
-    console.warn('Guest quiz migration skipped:', err);
+    console.warn('Guest quiz migration notice:', err);
   }
 }
 
 /**
- * Login function with real credential verification
- */
-export async function loginUser({ email, password, rememberMe = true }) {
-  // Artificial latency for authentic network feel
-  await new Promise((r) => setTimeout(r, 600));
-
-  const cleanEmail = email.trim().toLowerCase();
-
-  // If Supabase is configured via env, delegate to Supabase
-  if (isSupabaseConfigured()) {
-    try {
-      const url = import.meta.env.VITE_SUPABASE_URL;
-      const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: key,
-        },
-        body: JSON.stringify({ email: cleanEmail, password }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error_description || data.message || 'Login gagal.');
-      }
-      return setSession({
-        id: data.user.id,
-        email: data.user.email,
-        fullName: data.user.user_metadata?.full_name || cleanEmail.split('@')[0],
-      }, rememberMe);
-    } catch (err) {
-      throw new Error(err.message || 'Gagal terhubung dengan server autentikasi.');
-    }
-  }
-
-  // Verify against registered registry
-  const users = getUsersRegistry();
-  const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
-
-  if (!user) {
-    throw new Error('Email belum terdaftar. Silakan buat akun baru.');
-  }
-
-  const inputHash = await hashPassword(password);
-  // Compare hashes
-  if (user.passwordHash !== inputHash) {
-    throw new Error('Kata sandi salah. Silakan periksa kembali.');
-  }
-
-  return setSession(user, rememberMe);
-}
-
-/**
- * Register function with real validation and password hashing
+ * Register User with Firebase Auth & Cloud Firestore
  */
 export async function registerUser({ fullName, email, password, confirmPassword }) {
-  // Artificial network latency
-  await new Promise((r) => setTimeout(r, 700));
-
   const cleanEmail = email.trim().toLowerCase();
   const cleanName = fullName.trim();
 
-  // Validation
+  // Basic validation
   if (!cleanName) {
     throw new Error('Nama lengkap wajib diisi.');
   }
@@ -233,36 +203,50 @@ export async function registerUser({ fullName, email, password, confirmPassword 
     throw new Error('Konfirmasi kata sandi tidak cocok.');
   }
 
-  // If Supabase is configured via env
-  if (isSupabaseConfigured()) {
+  // 1. LIVE FIREBASE AUTH & FIRESTORE INTEGRATION
+  if (isFirebaseConfigured() && auth && db) {
     try {
-      const url = import.meta.env.VITE_SUPABASE_URL;
-      const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const response = await fetch(`${url}/auth/v1/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: key,
-        },
-        body: JSON.stringify({
-          email: cleanEmail,
-          password,
-          data: { full_name: cleanName },
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.msg || data.message || 'Pendaftaran gagal.');
-      }
-      return setSession({
-        id: data.id || data.user?.id,
+      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      const fbUser = userCredential.user;
+
+      // Update Firebase Auth Display Name
+      await updateProfile(fbUser, { displayName: cleanName });
+
+      // Save student profile to Cloud Firestore collection "users"
+      const userDocRef = doc(db, 'users', fbUser.uid);
+      const profileData = {
+        uid: fbUser.uid,
         email: cleanEmail,
         fullName: cleanName,
-      });
+        role: 'student',
+        classGrade: 'XI Fase F',
+        schoolName: 'SMA / MA Laboratorium',
+        authProvider: 'firebase',
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+      };
+
+      await setDoc(userDocRef, profileData, { merge: true });
+
+      // Migrate guest attempts to Firestore
+      await migrateLocalGuestAttemptsToFirestore(fbUser.uid);
+
+      return setSession({
+        uid: fbUser.uid,
+        id: fbUser.uid,
+        email: cleanEmail,
+        fullName: cleanName,
+        role: 'student',
+        classGrade: 'XI Fase F',
+        schoolName: 'SMA / MA Laboratorium',
+      }, true);
     } catch (err) {
-      throw new Error(err.message || 'Gagal mendaftar ke server.');
+      throw new Error(translateFirebaseError(err));
     }
   }
+
+  // 2. LOCAL SECURE ENGINE (FALLBACK WHEN ENV IS PENDING)
+  await new Promise((r) => setTimeout(r, 600));
 
   const users = getUsersRegistry();
   const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
@@ -278,7 +262,7 @@ export async function registerUser({ fullName, email, password, confirmPassword 
     role: 'student',
     classGrade: 'XI Fase F',
     schoolName: 'SMA / MA Laboratorium',
-    passwordHash, // Hashed string only!
+    passwordHash,
     createdAt: new Date().toISOString(),
   };
 
@@ -289,27 +273,132 @@ export async function registerUser({ fullName, email, password, confirmPassword 
 }
 
 /**
- * Request password reset link
+ * Login User with Firebase Auth & Cloud Firestore
+ */
+export async function loginUser({ email, password, rememberMe = true }) {
+  const cleanEmail = email.trim().toLowerCase();
+
+  if (!cleanEmail) {
+    throw new Error('Email wajib diisi.');
+  }
+  if (!password) {
+    throw new Error('Kata sandi wajib diisi.');
+  }
+
+  // 1. LIVE FIREBASE AUTH INTEGRATION
+  if (isFirebaseConfigured() && auth) {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
+      const fbUser = userCredential.user;
+
+      let studentProfile = {
+        uid: fbUser.uid,
+        id: fbUser.uid,
+        email: fbUser.email,
+        fullName: fbUser.displayName || cleanEmail.split('@')[0],
+        role: 'student',
+        classGrade: 'XI Fase F',
+        schoolName: 'SMA / MA Laboratorium',
+      };
+
+      // Fetch Firestore profile document
+      if (db) {
+        try {
+          const userDocRef = doc(db, 'users', fbUser.uid);
+          const snap = await getDoc(userDocRef);
+          if (snap.exists()) {
+            studentProfile = { ...studentProfile, ...snap.data() };
+            // Update lastLoginAt
+            await setDoc(userDocRef, { lastLoginAt: serverTimestamp() }, { merge: true });
+          } else {
+            // First time login with this auth user, write default profile
+            await setDoc(userDocRef, {
+              ...studentProfile,
+              createdAt: serverTimestamp(),
+              lastLoginAt: serverTimestamp(),
+            }, { merge: true });
+          }
+
+          // Migrate any pending guest quiz attempts to Firestore
+          await migrateLocalGuestAttemptsToFirestore(fbUser.uid);
+        } catch (err) {
+          console.warn('Firestore profile fetch notice:', err);
+        }
+      }
+
+      return setSession(studentProfile, rememberMe);
+    } catch (err) {
+      throw new Error(translateFirebaseError(err));
+    }
+  }
+
+  // 2. LOCAL SECURE ENGINE (FALLBACK)
+  await new Promise((r) => setTimeout(r, 500));
+
+  const users = getUsersRegistry();
+  const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
+  if (!user) {
+    throw new Error('Email belum terdaftar. Silakan buat akun baru.');
+  }
+
+  const inputHash = await hashPassword(password);
+  if (user.passwordHash !== inputHash) {
+    throw new Error('Kata sandi salah. Silakan periksa kembali.');
+  }
+
+  return setSession(user, rememberMe);
+}
+
+/**
+ * Logout User
+ */
+export async function logoutUser() {
+  if (isFirebaseConfigured() && auth) {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.warn('Firebase signOut notice:', err);
+    }
+  }
+  clearSession();
+}
+
+/**
+ * Send Password Reset Link via Firebase Auth
  */
 export async function requestPasswordReset(email) {
-  await new Promise((r) => setTimeout(r, 600));
   const cleanEmail = email.trim().toLowerCase();
 
   if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
     throw new Error('Format email tidak valid.');
   }
 
-  // Check if registered
+  // 1. LIVE FIREBASE AUTH RESET
+  if (isFirebaseConfigured() && auth) {
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      return {
+        success: true,
+        message: `Tautan pemulihan kata sandi telah dikirim oleh Firebase ke ${cleanEmail}. Silakan periksa kotak masuk atau spam email Anda.`,
+        sentAt: new Date().toISOString(),
+      };
+    } catch (err) {
+      throw new Error(translateFirebaseError(err));
+    }
+  }
+
+  // 2. LOCAL SIMULATION
+  await new Promise((r) => setTimeout(r, 600));
+
   const users = getUsersRegistry();
   const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
-  if (!user && !isSupabaseConfigured()) {
+  if (!user) {
     throw new Error('Email tidak ditemukan dalam sistem kami.');
   }
 
   return {
     success: true,
-    message: `Tautan pemulihan kata sandi telah dikirim ke ${cleanEmail}. Silakan periksa kotak masuk atau spam email Anda.`,
+    message: `Tautan pemulihan kata sandi telah dikirim ke ${cleanEmail}. Silakan periksa kotak masuk email Anda.`,
     sentAt: new Date().toISOString(),
   };
 }
-
