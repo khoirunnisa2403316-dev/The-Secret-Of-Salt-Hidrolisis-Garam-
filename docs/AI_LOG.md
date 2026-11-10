@@ -33,3 +33,26 @@ Dokumen ini mencatat keputusan arsitektur, progres pengerjaan modul, dan riwayat
   - Tangani penyimpanan ditolak tanpa pernah mengklaim berhasil simpan jika gagal.
   - Tidak melakukan commit / merge otomatis.
 - **Status**: Teruji dengan `oxlint` (0 warning, 0 error) dan `vite build` (sukses).
+
+---
+
+## [2026-11-10] Issue #05: Sistem Autentikasi Pengguna & Halaman Login/Register/Forgot-Password/Dashboard
+- **Tindakan**: Implementasi sistem autentikasi lengkap media pembelajaran kimia menggunakan React, React Router DOM v7, dan Tailwind CSS v4.
+- **File Dibuat / Diperbarui**:
+  1. `src/components/AuthLayout.jsx`: Tata letak autentikasi split-screen dengan ilustrasi laboratorium kimia modern, partikel ion ($H_3O^+, OH^-, NH_4^+, CH_3COO^-$), sudut membulat, bayangan lembut, dan responsivitas mobile-first.
+  2. `src/components/InputField.jsx`: Komponen input teks/email reusable dengan ikon kiri, penanda wajib, pesan kesalahan real-time di bawah input, dan ring fokus teal.
+  3. `src/components/PasswordField.jsx`: Komponen input kata sandi reusable dengan ikon gembok kiri, tombol show/hide password mata interaktif, dan tautan kanan opsional ("Lupa Kata Sandi?").
+  4. `src/pages/Login.jsx`: Halaman login lengkap dengan validasi email/kata sandi, loading state, notifikasi keberhasilan/kesalahan, dan akun demo kimia cepat.
+  5. `src/pages/Register.jsx`: Halaman registrasi siswa baru (Nama Lengkap, Email, Kata Sandi min 8 karakter, Ulangi Kata Sandi, indikator kekuatan password, validasi kecocokan).
+  6. `src/pages/ForgotPassword.jsx`: Halaman pemulihan kata sandi melalui email dengan validasi dan konfirmasi pengiriman tautan.
+  7. `src/pages/Dashboard.jsx`: Dashboard siswa terproteksi yang menampilkan identitas profil, capaian kuis terverifikasi, dan jalan pintas ke Lab Maya.
+  8. `src/services/authService.js` & `src/context/useAuth.js`: Layanan autentikasi aman (kriptografi SHA-256 browser, tanpa penyimpanan plaintext password di localStorage, integrasi Supabase/Firebase via env variables, migrasi kuis guest otomatis).
+  9. `src/App.tsx` & `src/App.jsx`: Konfigurasi rute `/login`, `/register`, `/forgot-password`, `/dashboard` (terproteksi), dan `/` (beranda publik terjaga utuh).
+  10. `src/Navbar.jsx`: Integrasi status masuk/daftar/dashboard siswa ke navigasi utama dan laci seluler (*mobile drawer*).
+  11. `.env.example`: Panduan konfigurasi variabel lingkungan Supabase & Firebase.
+- **Kepatuhan Desain & Pengujian**:
+  - Palet warna resmi (#0F766E Teal, #164E63 Dark Cyan, #5EEAD4 Mint, #F0FDFA Light Mint, #DC2626 Error, #16A34A Success).
+  - Teruji dengan `oxlint` (0 warning, 0 error) dan `vite build` (selesai dalam ~390ms).
+  - Tidak menghapus fitur lain yang sudah ada (Hero, TopicCards, QuizModule1, Footer tetap utuh).
+  - Tidak melakukan commit / merge otomatis.
+- **Status**: Selesai dan diverifikasi.

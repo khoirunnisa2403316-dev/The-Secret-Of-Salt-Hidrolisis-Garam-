@@ -15,9 +15,9 @@ Acuan: PRD.md Bab 36 (Prioritas Pengembangan), Bab 39 (Roadmap 9 Tahap), dan Bab
 | **Tahap 4** | Laboratorium Virtual Hidrolisis Interaktif | Siap Dikerjakan | Simulasi reaksi ionik makro-mikro |
 | **Tahap 5** | Kalkulator pH Garam Step-by-Step Transparan | Siap Dikerjakan | Algoritma $K_h$, [H+], [OH-], pH |
 | **Tahap 6** | Kuis Formatif Modul 1 & Evaluasi Penilaian Diagnostik | **Selesai** | **Issue #04**: 10 soal terverifikasi, frozen diagnostic, storage adapter, riwayat perangkat |
-| **Tahap 7** | Sinkronisasi Progres Belajar & Penyimpanan Lokal | **Selesai (MVP)** | Storage adapter guest, fallback error handling, kontrak Bab 4 di [docs/DATABASED.md](file:///c:/Users/Khoirun%20Nisa%27%20Rakhma/WEBB/docs/DATABASED.md) |
+| **Tahap 7** | Sistem Autentikasi Pengguna & Sesi Terproteksi | **Selesai** | **Issue #05**: Login, Register, Forgot Password, Dashboard, dan proteksi rute |
 | **Tahap 8** | Audit Kepatuhan Ilmiah, Aksesibilitas WCAG & Validasi Rumus | **Selesai (Modul 1)** | Verifikasi rumus Kh, $m1-q8$ pH 9 (Opsi C), keyboard nav |
-| **Tahap 9** | Polish, Optimasi Kinerja, Production Readiness | Berkelanjutan | Bundle < 300KB, 0 warning linter |
+| **Tahap 9** | Polish, Optimasi Kinerja, Production Readiness | Berkelanjutan | Bundle < 380KB, 0 warning linter |
 
 ---
 
@@ -30,3 +30,9 @@ Acuan: PRD.md Bab 36 (Prioritas Pengembangan), Bab 39 (Roadmap 9 Tahap), dan Bab
 - **Penyimpanan Lokal**: `src/services/storageAdapter.ts` dengan penanganan kuota penuh/storage ditolak dan isolasi draf vs riwayat perangkat.
 - **Kontrak Basis Data**: Dokumentasi DDL dan API sinkronisasi di [docs/DATABASED.md](file:///c:/Users/Khoirun%20Nisa%27%20Rakhma/WEBB/docs/DATABASED.md).
 
+### [Issue #05] Sistem Autentikasi Pengguna & Halaman Login/Register/Forgot-Password/Dashboard
+- **Komponen**: `src/components/AuthLayout.jsx`, `src/components/InputField.jsx`, `src/components/PasswordField.jsx`
+- **Halaman**: `src/pages/Login.jsx`, `src/pages/Register.jsx`, `src/pages/ForgotPassword.jsx`, `src/pages/Dashboard.jsx`
+- **Rute**: Integrasi React Router DOM v7 pada `src/App.tsx` (`/login`, `/register`, `/forgot-password`, `/dashboard`, `/`)
+- **Keamanan**: Hash kriptografi SHA-256 browser, zero plain-text password, integrasi Supabase Auth via env variables.
+- **Aset Visual**: Ilustrasi laboratorium kimia, labu erlenmeyer, orbital atom, partikel ion ($H_3O^+, OH^-$).

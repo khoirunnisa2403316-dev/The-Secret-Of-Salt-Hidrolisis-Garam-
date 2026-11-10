@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="atomTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5EEAD4" />
+      <stop offset="100%" stop-color="#0F766E" />
+    </linearGradient>
+  </defs>
+  <!-- Orbitals -->
+  <ellipse cx="60" cy="60" rx="46" ry="17" transform="rotate(30 60 60)" stroke="#0F766E" stroke-width="3" stroke-opacity="0.8" />
+  <ellipse cx="60" cy="60" rx="46" ry="17" transform="rotate(-30 60 60)" stroke="#5EEAD4" stroke-width="3" stroke-opacity="0.9" />
+  <ellipse cx="60" cy="60" rx="46" ry="17" transform="rotate(90 60 60)" stroke="#164E63" stroke-width="3" stroke-opacity="0.75" />
+  <!-- Core Nucleus -->
+  <circle cx="60" cy="60" r="14" fill="url(#atomTeal)" />
+  <circle cx="56" cy="56" r="4" fill="#FFFFFF" opacity="0.6" />
+  <!-- Electrons -->
+  <circle cx="95" cy="40" r="5" fill="#5EEAD4" />
+  <circle cx="25" cy="80" r="5" fill="#FFD166" />
+  <circle cx="60" cy="14" r="5" fill="#FF887A" />
+</svg>
+

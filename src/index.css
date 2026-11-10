@@ -1,4 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: #0F766E;
+  --color-brand-secondary: #164E63;
+  --color-brand-accent: #5EEAD4;
+  --color-brand-bg: #F0FDFA;
+  --color-brand-text: #134E4A;
+  --color-brand-muted: #64748B;
+  --color-brand-error: #DC2626;
+  --color-brand-success: #16A34A;
+}
+
 :root {
+  /* Auth Page Color Palette per Specifications */
+  --color-auth-primary: #0F766E;
+  --color-auth-primary-hover: #115E59;
+  --color-auth-secondary: #164E63;
+  --color-auth-accent: #5EEAD4;
+  --color-auth-bg: #F0FDFA;
+  --color-auth-surface: #FFFFFF;
+  --color-auth-text-primary: #134E4A;
+  --color-auth-text-secondary: #64748B;
+  --color-auth-error: #DC2626;
+  --color-auth-success: #16A34A;
+
   /* Brand Palette from PRD */
   --color-fresh-teal: #20B8AA;
   --color-fresh-teal-hover: #179c90;

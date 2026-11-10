@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from './context/useAuth';
 
 export default function Navbar({ onStartClick }) {
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [warmMode, setWarmMode] = useState(false);
@@ -141,6 +144,90 @@ export default function Navbar({ onStartClick }) {
               <span>Mulai Belajar</span>
             </button>
 
+            {/* Auth Actions: Login / Register or Dashboard */}
+            {isAuthenticated ? (
+              <div className="navbar-auth-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Link
+                  to="/dashboard"
+                  className="navbar-dashboard-pill"
+                  title="Buka Dashboard Belajar Siswa"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'rgba(15, 118, 110, 0.1)',
+                    color: '#0F766E',
+                    fontWeight: '700',
+                    fontSize: '0.88rem',
+                    textDecoration: 'none',
+                    border: '1px solid rgba(15, 118, 110, 0.3)',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  <span aria-hidden="true">👤</span>
+                  <span className="truncate max-w-[120px]">{user?.fullName?.split(' ')[0] || 'Dashboard'}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="navbar-logout-btn"
+                  title="Keluar dari akun Anda"
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'transparent',
+                    color: '#DC2626',
+                    fontWeight: '700',
+                    fontSize: '0.85rem',
+                    border: '1px solid #FECACA',
+                    cursor: 'pointer',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  Keluar
+                </button>
+              </div>
+            ) : (
+              <div className="navbar-auth-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Link
+                  to="/login"
+                  className="navbar-login-btn"
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'transparent',
+                    color: 'var(--color-deep-navy)',
+                    fontWeight: '700',
+                    fontSize: '0.88rem',
+                    textDecoration: 'none',
+                    border: '1.5px solid var(--color-border)',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  Masuk
+                </Link>
+                <Link
+                  to="/register"
+                  className="navbar-register-btn"
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: '#0F766E',
+                    color: '#FFFFFF',
+                    fontWeight: '700',
+                    fontSize: '0.88rem',
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 8px rgba(15, 118, 110, 0.25)',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  Daftar
+                </Link>
+              </div>
+            )}
+
             {/* Hamburger Button for Mobile */}
             <button
               type="button"
@@ -195,6 +282,56 @@ export default function Navbar({ onStartClick }) {
                   🚀 Mulai Petualangan Belajar
                 </button>
               </li>
+              {/* Mobile Auth Items */}
+              {isAuthenticated ? (
+                <>
+                  <li className="mobile-auth-item">
+                    <Link
+                      to="/dashboard"
+                      className="mobile-nav-link"
+                      onClick={() => setMobileMenuOpen(false)}
+                      style={{ fontWeight: '700', color: '#0F766E' }}
+                    >
+                      👤 Buka Dashboard Siswa ({user?.fullName?.split(' ')[0]})
+                    </Link>
+                  </li>
+                  <li className="mobile-auth-item">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        logout();
+                      }}
+                      className="mobile-help-btn"
+                      style={{ color: '#DC2626' }}
+                    >
+                      🚪 Keluar dari Akun
+                    </button>
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li className="mobile-auth-item">
+                    <Link
+                      to="/login"
+                      className="mobile-nav-link"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      🔐 Masuk ke Akun
+                    </Link>
+                  </li>
+                  <li className="mobile-auth-item">
+                    <Link
+                      to="/register"
+                      className="mobile-nav-link"
+                      onClick={() => setMobileMenuOpen(false)}
+                      style={{ fontWeight: '700', color: '#0F766E' }}
+                    >
+                      ✨ Daftar Akun Baru
+                    </Link>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
         )}
