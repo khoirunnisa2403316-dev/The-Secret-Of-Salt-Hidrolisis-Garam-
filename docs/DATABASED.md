@@ -337,4 +337,24 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=1234567890
 VITE_FIREBASE_APP_ID=1:1234567890:web:abcdef...
 ```
 
+---
+
+## 6. Arsitektur Panel Guru, Antrean Akun, & Migrasi Tamu Selektif
+
+### 6.1 Proteksi Akses Data Guru (Role-Based Access Control)
+1. **Hak Akses Guru**: Pengguna dengan `role: 'teacher'` memiliki wewenang untuk membaca seluruh pengumpulan kuis pada koleksi `quiz_attempts` dan mengelompokkannya per rombongan belajar (`classGrade`).
+2. **Isolasi Data Siswa**: Pengguna dengan `role: 'student'` hanya dapat membaca dan menulis dokumen dengan kepemilikan `userId == auth.uid`.
+3. **Mekanisme Idempoten**: Pengiriman percobaan kuis selalu menggunakan `attemptId` sebagai ID dokumen Firestore (`setDoc(doc(db, 'quiz_attempts', attemptId), payload, { merge: true })`). Pengiriman berulang dengan ID yang sama tidak akan menimbulkan duplikasi data skor.
+
+### 6.2 Antrean Sinkronisasi Milik Akun (`Account-Scoped Sync Queue`)
+1. Data percobaan kuis yang belum terkirim saat offline disimpan dalam antrean khusus per akun: `chem_sync_queue_${userId}`.
+2. Penanganan pergantian akun (*account-switch race condition*): Sebelum mengirim atau menandai terkirim, sistem melakukan verifikasi `isCurrentSessionUser(targetUserId)`. Jika pengguna berpindah akun atau keluar di tengah proses, pengiriman segera dihentikan demi menjaga integritas data antar-siswa.
+3. Status pengiriman baru ditandai `synced: true` setelah server mengembalikan konfirmasi penerimaan sukses.
+
+### 6.3 Migrasi Hasil Tamu Terpilih (`Selective Guest Migration`)
+1. Siswa yang memiliki riwayat kuis saat berstatus tamu disajikan daftar pilihan percobaan kuis yang ada di perangkat.
+2. Siswa dapat mencentang hasil mana saja yang ingin ditautkan ke akun resminya.
+3. Hanya data yang dipilih siswa yang dikirim dan ditautkan ke akun pengguna aktif.
+
+
 

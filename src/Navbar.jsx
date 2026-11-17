@@ -147,6 +147,30 @@ export default function Navbar({ onStartClick }) {
             {/* Auth Actions: Login / Register or Dashboard */}
             {isAuthenticated ? (
               <div className="navbar-auth-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {user?.role === 'teacher' && user?.email?.toLowerCase().trim() === 'khoirun.nisa.2403316@students.um.ac.id' && (
+                  <Link
+                    to="/teacher"
+                    className="navbar-teacher-pill"
+                    title="Buka Panel Pengampu Guru"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'linear-gradient(135deg, #164E63 0%, #0F766E 100%)',
+                      color: '#FFFFFF',
+                      fontWeight: '800',
+                      fontSize: '0.85rem',
+                      textDecoration: 'none',
+                      boxShadow: '0 2px 8px rgba(15, 118, 110, 0.25)',
+                      transition: 'all var(--transition-fast)'
+                    }}
+                  >
+                    <span aria-hidden="true">👩‍🏫</span>
+                    <span>Panel Guru</span>
+                  </Link>
+                )}
                 <Link
                   to="/dashboard"
                   className="navbar-dashboard-pill"
@@ -285,6 +309,18 @@ export default function Navbar({ onStartClick }) {
               {/* Mobile Auth Items */}
               {isAuthenticated ? (
                 <>
+                  {user?.role === 'teacher' && user?.email?.toLowerCase().trim() === 'khoirun.nisa.2403316@students.um.ac.id' && (
+                    <li className="mobile-auth-item">
+                      <Link
+                        to="/teacher"
+                        className="mobile-nav-link"
+                        onClick={() => setMobileMenuOpen(false)}
+                        style={{ fontWeight: '800', color: '#164E63' }}
+                      >
+                        👩‍🏫 Panel Pengampu Guru
+                      </Link>
+                    </li>
+                  )}
                   <li className="mobile-auth-item">
                     <Link
                       to="/dashboard"
@@ -292,7 +328,7 @@ export default function Navbar({ onStartClick }) {
                       onClick={() => setMobileMenuOpen(false)}
                       style={{ fontWeight: '700', color: '#0F766E' }}
                     >
-                      👤 Buka Dashboard Siswa ({user?.fullName?.split(' ')[0]})
+                      👤 Buka Dashboard ({user?.fullName?.split(' ')[0]})
                     </Link>
                   </li>
                   <li className="mobile-auth-item">

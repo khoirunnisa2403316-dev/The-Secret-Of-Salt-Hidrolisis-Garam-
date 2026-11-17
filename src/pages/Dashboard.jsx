@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import atomMolecule from '../assets/images/atom-molecule.svg';
-import { fetchUserQuizHistoryFromFirestore } from '../services/firestoreQuizService';
+import {
+  fetchUserQuizHistoryFromFirestore,
+  getUnmigratedGuestAttempts,
+  migrateSelectedGuestAttempts,
+  getAccountQueue,
+  processAccountSyncQueue,
+} from '../services/firestoreQuizService';
 import { isFirebaseConfigured } from '../services/firebase';
 
 /**
@@ -20,51 +26,140 @@ export default function Dashboard() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [showConfigGuide, setShowConfigGuide] = useState(false);
 
+  // Guest Migration States
+  const [unmigratedGuests, setUnmigratedGuests] = useState([]);
+  const [selectedGuestIds, setSelectedGuestIds] = useState([]);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationNotice, setMigrationNotice] = useState('');
+
+  // Account Sync Queue States
+  const [accountQueue, setAccountQueue] = useState([]);
+  const [processingQueue, setProcessingQueue] = useState(false);
+  const [queueNotice, setQueueNotice] = useState('');
+
   const handleLogout = async () => {
     await logout();
     navigate('/login', { replace: true });
   };
 
-  useEffect(() => {
-    let isMounted = true;
+  const reloadData = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingHistory(true);
 
-    async function loadHistory() {
-      setLoadingHistory(true);
+    let localAttempts = [];
+    try {
+      const raw = localStorage.getItem(`chem_user_history_${user.id}`);
+      if (raw) localAttempts = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
 
-      // 1. Initial load from local cache
-      let localAttempts = [];
-      if (user?.id) {
-        try {
-          const raw = localStorage.getItem(`chem_user_history_${user.id}`) ||
-                      localStorage.getItem('secret_of_salt_guest_m1_history');
-          if (raw) localAttempts = JSON.parse(raw);
-        } catch {
-          // ignore
+    if (isFirebaseConfigured() && user?.id) {
+      try {
+        const firestoreAttempts = await fetchUserQuizHistoryFromFirestore(user.id);
+        if (firestoreAttempts.length > 0) {
+          localAttempts = firestoreAttempts;
         }
+      } catch (err) {
+        console.warn('Firestore history load notice:', err);
+      }
+    }
+
+    setQuizHistory(localAttempts);
+    setLoadingHistory(false);
+
+    const guestItems = getUnmigratedGuestAttempts(user.id);
+    setUnmigratedGuests(guestItems);
+    setSelectedGuestIds(guestItems.map((g) => g.attemptId));
+
+    const queue = getAccountQueue(user.id);
+    setAccountQueue(queue);
+  }, [user]);
+
+  useEffect(() => {
+    let ignore = false;
+    async function init() {
+      if (!user?.id) return;
+      let localAttempts = [];
+      try {
+        const raw = localStorage.getItem(`chem_user_history_${user.id}`);
+        if (raw) localAttempts = JSON.parse(raw);
+      } catch {
+        // ignore
       }
 
-      if (isMounted && localAttempts.length > 0) {
-        setQuizHistory(localAttempts);
-      }
-
-      // 2. Fetch live from Cloud Firestore if configured
       if (isFirebaseConfigured() && user?.id) {
         try {
           const firestoreAttempts = await fetchUserQuizHistoryFromFirestore(user.id);
-          if (isMounted && firestoreAttempts.length > 0) {
-            setQuizHistory(firestoreAttempts);
+          if (firestoreAttempts.length > 0) {
+            localAttempts = firestoreAttempts;
           }
         } catch (err) {
           console.warn('Firestore history load notice:', err);
         }
       }
 
-      if (isMounted) setLoadingHistory(false);
+      if (!ignore) {
+        setQuizHistory(localAttempts);
+        setLoadingHistory(false);
+        const guestItems = getUnmigratedGuestAttempts(user.id);
+        setUnmigratedGuests(guestItems);
+        setSelectedGuestIds(guestItems.map((g) => g.attemptId));
+        const queue = getAccountQueue(user.id);
+        setAccountQueue(queue);
+      }
     }
-
-    loadHistory();
-    return () => { isMounted = false; };
+    init();
+    return () => {
+      ignore = true;
+    };
   }, [user]);
+
+  // Handle selective migration
+  const handleToggleGuestSelect = (attemptId) => {
+    setSelectedGuestIds((prev) =>
+      prev.includes(attemptId) ? prev.filter((id) => id !== attemptId) : [...prev, attemptId]
+    );
+  };
+
+  const handleMigrateSelected = async () => {
+    if (!user?.id || selectedGuestIds.length === 0 || migrating) return;
+    setMigrating(true);
+    setMigrationNotice('');
+
+    try {
+      const res = await migrateSelectedGuestAttempts(selectedGuestIds, user.id, user.fullName);
+      if (res.success) {
+        setMigrationNotice(`Berhasil menautkan ${res.migratedCount} hasil kuis tamu ke akun Anda!`);
+        await reloadData();
+      }
+    } catch (err) {
+      setMigrationNotice(`Gagal migrasi: ${err.message}`);
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  // Handle process account sync queue
+  const handleProcessQueue = async () => {
+    if (!user?.id || processingQueue) return;
+    setProcessingQueue(true);
+    setQueueNotice('');
+
+    try {
+      const res = await processAccountSyncQueue(user.id);
+      if (res.processed > 0) {
+        setQueueNotice(`Berhasil mengirimkan ${res.processed} percobaan kuis ke Cloud Firestore!`);
+      } else if (res.failed > 0) {
+        setQueueNotice(`Terdapat ${res.failed} pengiriman gagal. Pastikan koneksi internet aktif.`);
+      }
+      await reloadData();
+    } catch (err) {
+      setQueueNotice(`Gagal memproses antrean: ${err.message}`);
+    } finally {
+      setProcessingQueue(false);
+    }
+  };
 
   const latestAttempt = quizHistory[0] || null;
   const isCloudActive = isFirebaseConfigured();
@@ -89,6 +184,15 @@ export default function Dashboard() {
 
           {/* User Profile & Actions */}
           <div className="flex items-center gap-3 sm:gap-4">
+            {user?.role === 'teacher' && user?.email?.toLowerCase().trim() === 'khoirun.nisa.2403316@students.um.ac.id' && (
+              <Link
+                to="/teacher"
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-white px-3.5 py-2 rounded-xl bg-linear-to-r from-[#164E63] to-[#0F766E] shadow-sm hover:opacity-95 transition-all"
+              >
+                <span>👩‍🏫 Panel Pengampu Guru</span>
+              </Link>
+            )}
+
             <Link
               to="/"
               className="hidden sm:inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#0F766E] hover:text-[#115E59] px-3.5 py-2 rounded-xl bg-[#F0FDFA] border border-[#CCFBF1] transition-colors"
@@ -167,6 +271,140 @@ export default function Dashboard() {
             {showConfigGuide ? 'Tutup Panduan ▲' : 'Panduan Kunci Firebase ▼'}
           </button>
         </div>
+
+        {/* Migration Success / Error Notice */}
+        {migrationNotice && (
+          <div className="mb-6 p-4 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] text-[#16A34A] text-sm font-semibold flex items-center justify-between">
+            <span>{migrationNotice}</span>
+            <button type="button" onClick={() => setMigrationNotice('')} className="text-xs underline cursor-pointer">
+              Tutup
+            </button>
+          </div>
+        )}
+
+        {/* Account Sync Queue Notice */}
+        {queueNotice && (
+          <div className="mb-6 p-4 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] text-[#1D4ED8] text-sm font-semibold flex items-center justify-between">
+            <span>{queueNotice}</span>
+            <button type="button" onClick={() => setQueueNotice('')} className="text-xs underline cursor-pointer">
+              Tutup
+            </button>
+          </div>
+        )}
+
+        {/* 1. Selective Guest Quiz Migration Card (PRD Bab 4 & Issue #08) */}
+        {unmigratedGuests.length > 0 && (
+          <div className="mb-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#F0FDFA] to-[#FFFFFF] border-2 border-[#5EEAD4] shadow-sm">
+            <div className="flex items-center gap-2 mb-2 text-[#0F766E]">
+              <span className="text-xl">📥</span>
+              <h3 className="font-extrabold text-base sm:text-lg">
+                Tautkan Hasil Kuis Sesi Tamu ke Akun Anda
+              </h3>
+            </div>
+            <p className="text-xs sm:text-sm text-[#475569] mb-4">
+              Ditemukan <strong>{unmigratedGuests.length} percobaan kuis</strong> dari sesi tamu di perangkat ini. Pilih hasil kuis yang ingin Anda sinkronkan ke akun <strong>{user?.fullName}</strong>:
+            </p>
+
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+              {unmigratedGuests.map((attempt) => {
+                const isSelected = selectedGuestIds.includes(attempt.attemptId);
+                const formattedDate = new Date(attempt.completedAt).toLocaleString('id-ID', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
+
+                return (
+                  <label
+                    key={attempt.attemptId}
+                    className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                      isSelected
+                        ? 'bg-[#CCFBF1]/30 border-[#0F766E]'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleGuestSelect(attempt.attemptId)}
+                        className="w-4 h-4 rounded text-[#0F766E] border-slate-300 focus:ring-[#0F766E]"
+                      />
+                      <div>
+                        <span className="font-bold text-sm text-[#134E4A]">
+                          Kuis Modul 1 (v{attempt.questionVersion || '1.0.0'})
+                        </span>
+                        <span className="block text-xs text-[#64748B]">
+                          Diselesaikan: {formattedDate} WIB • ID: {attempt.attemptId.substring(0, 12)}...
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="inline-block px-2.5 py-1 rounded-full text-xs font-extrabold bg-[#DCFCE7] text-[#166534]">
+                        Skor: {attempt.score}/100
+                      </span>
+                      <span className="block text-[11px] text-[#64748B] mt-0.5">
+                        {attempt.correctCount} dari {attempt.totalQuestions || 10} benar
+                      </span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={handleMigrateSelected}
+                disabled={selectedGuestIds.length === 0 || migrating}
+                className="py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-[#0F766E] hover:bg-[#115E59] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                {migrating ? 'Menautkan Data...' : `Tautkan ${selectedGuestIds.length} Hasil Terpilih`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedGuestIds(unmigratedGuests.map((g) => g.attemptId))}
+                className="text-xs font-semibold text-[#0F766E] hover:underline cursor-pointer"
+              >
+                Pilih Semua
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedGuestIds([])}
+                className="text-xs font-semibold text-[#64748B] hover:underline cursor-pointer"
+              >
+                Batalkan Pilihan
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 2. Account-Scoped Sync Queue Banner */}
+        {accountQueue.length > 0 && (
+          <div className="mb-6 p-4 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">📤</span>
+              <div>
+                <strong className="text-sm text-[#1E40AF]">
+                  Antrean Sinkronisasi Akun ({accountQueue.length} Tertunda)
+                </strong>
+                <p className="text-xs text-[#3B82F6]">
+                  Terdapat hasil kuis yang belum terkirim ke Cloud Firestore. Data akan dikirim tanpa duplikasi (idempoten).
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleProcessQueue}
+              disabled={processingQueue}
+              className="py-2 px-3.5 rounded-xl text-xs font-bold bg-[#1D4ED8] text-white hover:bg-[#1E40AF] transition-colors cursor-pointer"
+            >
+              {processingQueue ? 'Mengirim...' : 'Kirim Sekarang'}
+            </button>
+          </div>
+        )}
 
         {/* Collapsible Firebase Setup Guide */}
         {showConfigGuide && (

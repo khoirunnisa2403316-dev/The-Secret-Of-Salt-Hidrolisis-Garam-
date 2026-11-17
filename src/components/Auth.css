@@ -421,6 +421,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: #134E4A;
+  margin-bottom: 0.45rem;
 }
 
 .auth-label-required {
@@ -489,12 +490,12 @@
 
 /* With Left Icon: Guaranteed Indentation */
 .auth-input-with-icon {
-  padding-left: 2.75rem !important; /* 44px: Absolutely prevents text overlapping icon */
+  padding-left: 3rem !important; /* 48px: Absolutely guarantees text never overlaps icon */
 }
 
 /* Password Field: Guaranteed Right Padding for Eye Toggle */
 .auth-input-password {
-  padding-right: 2.75rem !important; /* 44px */
+  padding-right: 3rem !important; /* 48px: Absolutely guarantees text never overlaps eye toggle */
 }
 
 .auth-input:hover:not(:disabled) {

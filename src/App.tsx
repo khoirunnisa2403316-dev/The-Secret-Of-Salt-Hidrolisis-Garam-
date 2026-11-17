@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
+import TeacherDashboard from './pages/TeacherDashboard';
 import './App.css';
 
 /**
@@ -75,6 +76,26 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 /**
+ * Strict Teacher Route Wrapper
+ * Exclusively allows khoirun.nisa.2403316@students.um.ac.id to access the Teacher Panel.
+ * Any other account (students, unauthenticated) is immediately redirected.
+ */
+function TeacherRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  const isAuthorizedTeacher =
+    user?.email?.toLowerCase().trim() === 'khoirun.nisa.2403316@students.um.ac.id' &&
+    user?.role === 'teacher';
+
+  if (!isAuthorizedTeacher) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
+/**
  * Public Auth Route Wrapper — PRD Section 9
  * Redirects already authenticated users directly to /dashboard.
  */
@@ -132,6 +153,17 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Teacher Analytics & Management Route */}
+          <Route
+            path="/teacher"
+            element={
+              <TeacherRoute>
+                <TeacherDashboard />
+              </TeacherRoute>
+            }
+          />
+          <Route path="/panel-guru" element={<Navigate to="/teacher" replace />} />
 
           {/* Fallback to Home */}
           <Route path="*" element={<Navigate to="/" replace />} />

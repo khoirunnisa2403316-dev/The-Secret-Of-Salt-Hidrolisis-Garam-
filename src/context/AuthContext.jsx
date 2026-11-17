@@ -3,9 +3,11 @@ import { AuthContext } from './useAuth';
 import {
   getCurrentSession,
   loginUser,
+  loginWithGoogle as authLoginWithGoogle,
   registerUser,
   logoutUser,
   requestPasswordReset,
+  switchDemoAccount,
   setSession,
   clearSession,
 } from '../services/authService';
@@ -105,6 +107,28 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithGoogle = async () => {
+    setIsLoading(true);
+    setAuthError(null);
+    try {
+      const newSession = await authLoginWithGoogle();
+      setSessionState(newSession);
+      return { success: true, user: newSession.user };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Masuk dengan Google gagal.';
+      setAuthError(msg);
+      return { success: false, error: msg };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const switchDemoRole = (targetKey = 'student1') => {
+    const newSession = switchDemoAccount(targetKey);
+    setSessionState(newSession);
+    return newSession.user;
+  };
+
   const register = async ({ fullName, email, password, confirmPassword }) => {
     setIsLoading(true);
     setAuthError(null);
@@ -149,9 +173,11 @@ export function AuthProvider({ children }) {
     authError,
     clearError,
     login,
+    loginWithGoogle,
     register,
     logout,
     resetPassword,
+    switchDemoRole,
     isFirebaseConfigured: isFirebaseConfigured(),
   };
 

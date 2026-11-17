@@ -14,6 +14,8 @@ import {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup,
   doc,
   setDoc,
   getDoc,
@@ -26,6 +28,17 @@ const STORAGE_KEYS = {
   AUTH_USERS: 'chem_registered_users_registry',
   GUEST_HISTORY: 'secret_of_salt_guest_m1_history',
 };
+
+/**
+ * Strict Teacher Identity per Educational Institutional Policy:
+ * Only this specific institutional email is authorized to hold the teacher role.
+ */
+export const TEACHER_EMAIL = 'khoirun.nisa.2403316@students.um.ac.id';
+
+export function isTeacherEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  return email.trim().toLowerCase() === TEACHER_EMAIL.toLowerCase();
+}
 
 /**
  * Translate Firebase error codes into friendly Indonesian messages
@@ -69,29 +82,64 @@ export async function hashPassword(plainPassword) {
 
 /**
  * Helper to get local registered users registry (hashes only, no plain passwords)
+ * Pre-seeded with 2 students and 1 teacher for robust pedagogical testing
  */
 function getUsersRegistry() {
+  const defaultUsers = [
+    {
+      id: 'usr_demo_student_01',
+      email: 'ahmad.fauzi@kimia.sch.id',
+      fullName: 'Ahmad Fauzi',
+      role: 'student',
+      classGrade: 'XI-MIPA-1',
+      schoolName: 'SMA Negeri 1 Pembelajaran',
+      passwordHash: '8b7fcae8ce981c2bfaae3bdfdfa785d064c58cfb9be92a969b8fe1ad1568e21a', // Kimia2026!
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'usr_demo_student_02',
+      email: 'nabila.putri@kimia.sch.id',
+      fullName: 'Nabila Putri',
+      role: 'student',
+      classGrade: 'XI-MIPA-1',
+      schoolName: 'SMA Negeri 1 Pembelajaran',
+      passwordHash: '8b7fcae8ce981c2bfaae3bdfdfa785d064c58cfb9be92a969b8fe1ad1568e21a', // Kimia2026!
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'usr_demo_teacher_01',
+      email: 'khoirun.nisa.2403316@students.um.ac.id',
+      fullName: "Khoirun Nisa' Rakhma, S.Pd.",
+      role: 'teacher',
+      classGrade: 'XI-MIPA-1 & XI-MIPA-2',
+      schoolName: 'SMA Negeri 1 Pembelajaran',
+      nip: '2403316',
+      passwordHash: '8b7fcae8ce981c2bfaae3bdfdfa785d064c58cfb9be92a969b8fe1ad1568e21a', // Kimia2026!
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.AUTH_USERS);
     if (!raw) {
-      const defaultUsers = [
-        {
-          id: 'usr_demo_student_01',
-          email: 'siswa@kimia.sch.id',
-          fullName: 'Ahmad Fauzi (Siswa XI)',
-          role: 'student',
-          classGrade: 'XI Fase F',
-          schoolName: 'SMA Negeri 1 Pembelajaran',
-          passwordHash: '8b7fcae8ce981c2bfaae3bdfdfa785d064c58cfb9be92a969b8fe1ad1568e21a',
-          createdAt: new Date().toISOString(),
-        },
-      ];
       localStorage.setItem(STORAGE_KEYS.AUTH_USERS, JSON.stringify(defaultUsers));
       return defaultUsers;
     }
-    return JSON.parse(raw);
+    const current = JSON.parse(raw);
+    // Ensure all demo users exist in the registry
+    let modified = false;
+    defaultUsers.forEach((def) => {
+      if (!current.some((u) => u.id === def.id || u.email.toLowerCase() === def.email.toLowerCase())) {
+        current.push(def);
+        modified = true;
+      }
+    });
+    if (modified) {
+      localStorage.setItem(STORAGE_KEYS.AUTH_USERS, JSON.stringify(current));
+    }
+    return current;
   } catch {
-    return [];
+    return defaultUsers;
   }
 }
 
@@ -128,15 +176,18 @@ export function getCurrentSession() {
  * Save session securely (stores session token and sanitized profile, NEVER passwords)
  */
 export function setSession(user, rememberMe = true) {
+  const cleanEmail = (user.email || '').trim().toLowerCase();
+  const effectiveRole = isTeacherEmail(cleanEmail) ? 'teacher' : 'student';
+
   const sessionData = {
     token: `chem_sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
     user: {
       id: user.uid || user.id,
       uid: user.uid || user.id,
       email: user.email,
-      fullName: user.displayName || user.fullName || user.email.split('@')[0],
-      role: user.role || 'student',
-      classGrade: user.classGrade || 'XI Fase F',
+      fullName: user.displayName || user.fullName || user.email?.split('@')[0],
+      role: effectiveRole,
+      classGrade: user.classGrade || (effectiveRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F'),
       schoolName: user.schoolName || 'SMA / MA Laboratorium',
       authProvider: isFirebaseConfigured() ? 'firebase' : 'local_secure',
     },
@@ -212,14 +263,15 @@ export async function registerUser({ fullName, email, password, confirmPassword 
       // Update Firebase Auth Display Name
       await updateProfile(fbUser, { displayName: cleanName });
 
-      // Save student profile to Cloud Firestore collection "users"
+      // Save student/teacher profile to Cloud Firestore collection "users"
+      const userRole = isTeacherEmail(cleanEmail) ? 'teacher' : 'student';
       const userDocRef = doc(db, 'users', fbUser.uid);
       const profileData = {
         uid: fbUser.uid,
         email: cleanEmail,
         fullName: cleanName,
-        role: 'student',
-        classGrade: 'XI Fase F',
+        role: userRole,
+        classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F',
         schoolName: 'SMA / MA Laboratorium',
         authProvider: 'firebase',
         createdAt: serverTimestamp(),
@@ -236,8 +288,8 @@ export async function registerUser({ fullName, email, password, confirmPassword 
         id: fbUser.uid,
         email: cleanEmail,
         fullName: cleanName,
-        role: 'student',
-        classGrade: 'XI Fase F',
+        role: userRole,
+        classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F',
         schoolName: 'SMA / MA Laboratorium',
       }, true);
     } catch (err) {
@@ -255,12 +307,13 @@ export async function registerUser({ fullName, email, password, confirmPassword 
   }
 
   const passwordHash = await hashPassword(password);
+  const userRole = isTeacherEmail(cleanEmail) ? 'teacher' : 'student';
   const newUser = {
     id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     email: cleanEmail,
     fullName: cleanName,
-    role: 'student',
-    classGrade: 'XI Fase F',
+    role: userRole,
+    classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F',
     schoolName: 'SMA / MA Laboratorium',
     passwordHash,
     createdAt: new Date().toISOString(),
@@ -291,13 +344,14 @@ export async function loginUser({ email, password, rememberMe = true }) {
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
       const fbUser = userCredential.user;
 
+      const userRole = isTeacherEmail(fbUser.email || cleanEmail) ? 'teacher' : 'student';
       let studentProfile = {
         uid: fbUser.uid,
         id: fbUser.uid,
         email: fbUser.email,
         fullName: fbUser.displayName || cleanEmail.split('@')[0],
-        role: 'student',
-        classGrade: 'XI Fase F',
+        role: userRole,
+        classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F',
         schoolName: 'SMA / MA Laboratorium',
       };
 
@@ -307,9 +361,9 @@ export async function loginUser({ email, password, rememberMe = true }) {
           const userDocRef = doc(db, 'users', fbUser.uid);
           const snap = await getDoc(userDocRef);
           if (snap.exists()) {
-            studentProfile = { ...studentProfile, ...snap.data() };
+            studentProfile = { ...studentProfile, ...snap.data(), role: userRole };
             // Update lastLoginAt
-            await setDoc(userDocRef, { lastLoginAt: serverTimestamp() }, { merge: true });
+            await setDoc(userDocRef, { lastLoginAt: serverTimestamp(), role: userRole }, { merge: true });
           } else {
             // First time login with this auth user, write default profile
             await setDoc(userDocRef, {
@@ -401,4 +455,135 @@ export async function requestPasswordReset(email) {
     message: `Tautan pemulihan kata sandi telah dikirim ke ${cleanEmail}. Silakan periksa kotak masuk email Anda.`,
     sentAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Sign in using Google Provider (Firebase Auth or graceful demo fallback)
+ */
+export async function loginWithGoogle() {
+  // 1. Live Firebase Google Auth Popup
+  if (isFirebaseConfigured() && auth) {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, provider);
+      const fbUser = result.user;
+
+      const userRole = isTeacherEmail(fbUser.email) ? 'teacher' : 'student';
+      let userProfile = {
+        uid: fbUser.uid,
+        id: fbUser.uid,
+        email: fbUser.email,
+        fullName: fbUser.displayName || fbUser.email?.split('@')[0],
+        role: userRole,
+        classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI-MIPA-1',
+        schoolName: 'SMA Negeri 1 Pembelajaran',
+        authProvider: 'google',
+      };
+
+      if (db) {
+        try {
+          const userDocRef = doc(db, 'users', fbUser.uid);
+          const snap = await getDoc(userDocRef);
+          if (snap.exists()) {
+            userProfile = { ...userProfile, ...snap.data(), role: userRole };
+            await setDoc(userDocRef, { lastLoginAt: serverTimestamp(), role: userRole }, { merge: true });
+          } else {
+            await setDoc(
+              userDocRef,
+              {
+                ...userProfile,
+                createdAt: serverTimestamp(),
+                lastLoginAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+        } catch (err) {
+          console.warn('Firestore profile write notice:', err);
+        }
+      }
+
+      return setSession(userProfile, true);
+    } catch (err) {
+      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+        throw new Error('Proses masuk dengan Google dibatalkan oleh pengguna.');
+      } else if (err?.code === 'auth/popup-blocked') {
+        throw new Error('Jendela popup Google terblokir oleh browser. Izinkan pop-up untuk melanjutkan.');
+      }
+      throw new Error(translateFirebaseError(err));
+    }
+  }
+
+  // 2. Local Fallback Engine (Demo Google Account)
+  await new Promise((r) => setTimeout(r, 600));
+  const fallbackGoogleStudent = {
+    id: 'usr_demo_student_01',
+    uid: 'usr_demo_student_01',
+    email: 'ahmad.fauzi@gmail.com',
+    fullName: 'Ahmad Fauzi (Google Account)',
+    role: 'student',
+    classGrade: 'XI-MIPA-1',
+    schoolName: 'SMA Negeri 1 Pembelajaran',
+    authProvider: 'google',
+  };
+  return setSession(fallbackGoogleStudent, true);
+}
+
+/**
+ * Check if the active session matches expected target user (prevents account-change race conditions)
+ */
+export function isCurrentSessionUser(expectedUserId) {
+  if (!expectedUserId) return false;
+  const current = getCurrentSession();
+  if (!current?.user) return false;
+  const curId = current.user.id || current.user.uid;
+  return curId === expectedUserId;
+}
+
+/**
+ * Convenient account switcher for testing 2 students and 1 teacher seamlessly
+ */
+export function switchDemoAccount(targetKey = 'student1') {
+  const users = getUsersRegistry();
+  let target = null;
+
+  if (targetKey === 'teacher' || targetKey === 'guru') {
+    target = users.find((u) => u.email === TEACHER_EMAIL) || {
+      id: 'usr_demo_teacher_01',
+      uid: 'usr_demo_teacher_01',
+      email: TEACHER_EMAIL,
+      fullName: "Khoirun Nisa' Rakhma, S.Pd.",
+      role: 'teacher',
+      classGrade: 'XI-MIPA-1 & XI-MIPA-2',
+      schoolName: 'SMA Negeri 1 Pembelajaran',
+      nip: '2403316',
+      authProvider: 'local_demo',
+    };
+  } else if (targetKey === 'student2' || targetKey === 'nabila') {
+    target = users.find((u) => u.id === 'usr_demo_student_02') || {
+      id: 'usr_demo_student_02',
+      uid: 'usr_demo_student_02',
+      email: 'nabila.putri@kimia.sch.id',
+      fullName: 'Nabila Putri',
+      role: 'student',
+      classGrade: 'XI-MIPA-1',
+      schoolName: 'SMA Negeri 1 Pembelajaran',
+      authProvider: 'local_demo',
+    };
+  } else {
+    // Default student 1 Ahmad Fauzi
+    target = users.find((u) => u.id === 'usr_demo_student_01') || {
+      id: 'usr_demo_student_01',
+      uid: 'usr_demo_student_01',
+      email: 'ahmad.fauzi@kimia.sch.id',
+      fullName: 'Ahmad Fauzi',
+      role: 'student',
+      classGrade: 'XI-MIPA-1',
+      schoolName: 'SMA Negeri 1 Pembelajaran',
+      authProvider: 'local_demo',
+    };
+  }
+
+  return setSession(target, true);
 }

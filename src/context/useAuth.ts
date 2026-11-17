@@ -19,9 +19,11 @@ export interface AuthContextType {
   authError: string | null;
   clearError: () => void;
   login: (params: { email: string; password: string; rememberMe?: boolean }) => Promise<{ success: boolean; user?: AuthUser; error?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; user?: AuthUser; error?: string }>;
   register: (params: { fullName: string; email: string; password: string; confirmPassword: string }) => Promise<{ success: boolean; user?: AuthUser; error?: string }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  switchDemoRole: (targetKey?: 'student1' | 'student2' | 'teacher' | 'nabila' | 'guru') => AuthUser;
   isFirebaseConfigured: boolean;
 }
 

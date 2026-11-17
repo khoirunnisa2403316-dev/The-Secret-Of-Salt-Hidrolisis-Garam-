@@ -57,7 +57,7 @@ export default function InputField({
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
           style={{
-            paddingLeft: icon ? '44px' : '16px',
+            paddingLeft: icon ? '48px' : '16px',
             paddingRight: '16px',
           }}
           className={`auth-input ${icon ? 'auth-input-with-icon' : ''} ${

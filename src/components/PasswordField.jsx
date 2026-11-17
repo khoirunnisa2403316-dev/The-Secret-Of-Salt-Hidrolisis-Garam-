@@ -72,8 +72,8 @@ export default function PasswordField({
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
           style={{
-            paddingLeft: '44px',
-            paddingRight: '44px',
+            paddingLeft: '48px',
+            paddingRight: '48px',
           }}
           className={`auth-input auth-input-with-icon auth-input-password ${
             error ? 'auth-input-error' : ''

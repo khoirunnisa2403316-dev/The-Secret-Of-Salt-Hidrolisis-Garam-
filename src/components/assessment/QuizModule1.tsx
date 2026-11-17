@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/useAuth';
-import { saveQuizAttemptToFirestore } from '../../services/firestoreQuizService';
+import { saveQuizAttemptToFirestore, enqueueAccountAttempt } from '../../services/firestoreQuizService';
 import { isFirebaseConfigured } from '../../services/firebase';
 import {
   soalHidrolisisGaram,
@@ -180,9 +180,37 @@ export default function QuizModule1() {
 
       persistHistory(updatedHistoryList);
 
-      // Save to Cloud Firestore if student is authenticated
+      // Save to Cloud Firestore & Account-Scoped Sync Queue if student is authenticated
       if (user?.id) {
-        saveQuizAttemptToFirestore(newHistoryItem, user.id);
+        const enrichedItem = {
+          ...newHistoryItem,
+          userFullName: user.fullName || 'Siswa Kimia',
+          classGrade: user.classGrade || 'XI-MIPA-1',
+          schoolName: user.schoolName || 'SMA Negeri 1 Pembelajaran',
+          activityName: 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
+          attemptType: updatedHistoryList.length > 1 ? `Percobaan Ke-${updatedHistoryList.length} (Remedial)` : 'Percobaan Ke-1 (Utama)',
+        };
+
+        // 1. Save to user's personal storage
+        try {
+          const userHistKey = `chem_user_history_${user.id}`;
+          const prevUserHist = JSON.parse(localStorage.getItem(userHistKey) || '[]');
+          const deduplicated = prevUserHist.filter((p: { attemptId: string }) => p.attemptId !== enrichedItem.attemptId);
+          localStorage.setItem(userHistKey, JSON.stringify([enrichedItem, ...deduplicated]));
+        } catch {
+          // ignore
+        }
+
+        // 2. Sync to Firestore (idempotent) or Enqueue
+        if (isFirebaseConfigured()) {
+          saveQuizAttemptToFirestore(enrichedItem, user.id).then((res) => {
+            if (!res.success) {
+              enqueueAccountAttempt(user.id, enrichedItem);
+            }
+          });
+        } else {
+          enqueueAccountAttempt(user.id, enrichedItem);
+        }
       }
     }
 

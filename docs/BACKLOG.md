@@ -40,3 +40,13 @@ Acuan: PRD.md Bab 36 (Prioritas Pengembangan), Bab 39 (Roadmap 9 Tahap), dan Bab
 - **Sinkronisasi Kuis**: `src/services/firestoreQuizService.js` (Menyimpan evaluasi kuis ke koleksi `quiz_attempts` dan migrasi otomatis sesi guest)
 - **Otentikasi Cloud**: `src/services/authService.js` terhubung ke `createUserWithEmailAndPassword`, `signInWithEmailAndPassword`, `signOut`, `sendPasswordResetEmail`, dan penyimpanan profil di Firestore `users/{uid}`.
 - **Dokumentasi & Rules**: Update [docs/DATABASED.md](file:///c:/Users/Khoirun%20Nisa%27%20Rakhma/WEBB/docs/DATABASED.md) dan pembuatan file konfigurasi `.env.local`.
+
+### [Issue #07] Penyempurnaan & Standarisasi UI/UX Autentikasi
+- **Komponen**: `src/components/Auth.css`, `src/components/InputField.jsx`, `src/components/PasswordField.jsx`, `src/components/AuthLayout.jsx`
+- **Perbaikan**: Penataan ulang `@layer base` di `src/index.css`, jaminan padding 44px anti-overlap teks dengan ikon, tombol *Teal* solid, kartu split adaptif responsif.
+
+### [Issue #08] Panel Pengampu Guru, Login Google, Antrean Sinkronisasi Akun, & Migrasi Tamu Pilihan Siswa
+- **Komponen & Halaman**: `src/pages/TeacherDashboard.jsx`, `src/pages/TeacherDashboard.css`, update `src/pages/Dashboard.jsx`, `src/pages/Login.jsx`, `src/pages/Register.jsx`
+- **Fitur Panel Guru**: Filter kelas (`listClass`), status data (memuat, kosong, gagal, total, pembaruan), daftar hasil masuk (alias, aktivitas, jenis percobaan, versi soal, skor, waktu server), rincian satu percobaan (lembar jawaban asli, kunci, pembahasan), rekap per butir (frekuensi A-D, benar-salah, aturan percobaan terakhir/terbaik/semua), dan tindak lanjut pembelajaran (interpretasi miskonsepsi + 1 rekomendasi kegiatan berikutnya).
+- **Layanan Autentikasi & Antrean**: Login Google (`loginWithGoogle`), antrean sinkronisasi idempoten per akun (`chem_sync_queue_${userId}`), migrasi kuis tamu pilihan siswa (`migrateSelectedGuestAttempts`), dan penanganan pergantian akun saat request berjalan.
+- **Rute & Proteksi**: Rute `/teacher` dan `/panel-guru` terproteksi untuk role `teacher`, serta pengujian multi-peran (2 siswa: Ahmad Fauzi & Nabila Putri; 1 guru: Ibu Siti Rahma, M.Pd.).
