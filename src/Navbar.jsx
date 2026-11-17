@@ -1,12 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './context/useAuth';
+import './Navbar.css';
 
+/**
+ * Left Sidebar Navigation Component — The Secret of Salt
+ * Positioned on the left side downwards in an orderly, structured, neat sequence.
+ * Features responsive off-canvas drawer on mobile and persistent sidebar on desktop.
+ */
 export default function Navbar({ onStartClick }) {
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [warmMode, setWarmMode] = useState(false);
+  const [activeHash, setActiveHash] = useState('#beranda');
 
   // Close modals on Escape key
   useEffect(() => {
@@ -18,6 +25,26 @@ export default function Navbar({ onStartClick }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Track active section as user scrolls
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = ['beranda', 'topik-prasyarat', 'lab-interaktif', 'kuis-modul-1', 'tentang'];
+      const scrollPosition = window.scrollY + 140;
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const id = sections[i];
+        const el = document.getElementById(id);
+        if (el && scrollPosition >= el.offsetTop) {
+          setActiveHash(`#${id}`);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Toggle warm ivory eye-care mode
@@ -32,15 +59,16 @@ export default function Navbar({ onStartClick }) {
   };
 
   const navLinks = [
-    { label: 'Beranda', href: '#beranda', active: true },
-    { label: 'Topik Prasyarat', href: '#topik-prasyarat' },
-    { label: 'Lab Maya & Simulasi', href: '#lab-interaktif' },
-    { label: 'Kuis Modul 1', href: '#kuis-modul-1' },
-    { label: 'Tentang Media', href: '#tentang' },
+    { label: 'Beranda', href: '#beranda', icon: '🏠' },
+    { label: 'Topik Prasyarat', href: '#topik-prasyarat', icon: '📖' },
+    { label: 'Lab Maya & Simulasi', href: '#lab-interaktif', icon: '🧪' },
+    { label: 'Kuis Modul 1', href: '#kuis-modul-1', icon: '🎯' },
+    { label: 'Tentang Media', href: '#tentang', icon: 'ℹ️' },
   ];
 
   const handleNavClick = (e, href) => {
     e.preventDefault();
+    setActiveHash(href);
     setMobileMenuOpen(false);
     const target = document.querySelector(href);
     if (target) {
@@ -48,332 +76,282 @@ export default function Navbar({ onStartClick }) {
     }
   };
 
+  const handleStartCta = () => {
+    setMobileMenuOpen(false);
+    onStartClick?.();
+  };
+
+  const isAuthorizedTeacher =
+    user?.role === 'teacher' &&
+    user?.email?.toLowerCase().trim() === 'khoirun.nisa.2403316@students.um.ac.id';
+
   return (
     <>
-      <header className="navbar-header" id="beranda">
-        <div className="navbar-container container">
-          {/* 1. Brand / Media Identity per PRD.md & AGENTS.md */}
-          <a href="#beranda" className="navbar-brand" aria-label="The Secret of Salt: Hydrolysis Adventure">
-            <div className="brand-logo-badge">
-              <svg
-                className="brand-icon"
-                viewBox="0 0 32 32"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M12 4H20M14 4V11L8.3 22.4C7.4 24.2 8.7 26.3 10.7 26.3H21.3C23.3 26.3 24.6 24.2 23.7 22.4L18 11V4"
-                  stroke="currentColor"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M10.2 18.5C12.4 17.5 14.6 19.5 17 18.5C19.2 17.5 21.8 18.5 21.8 18.5"
-                  stroke="#FFD166"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                />
-                <circle cx="16" cy="22" r="1.5" fill="#FFF9EC" />
-                <circle cx="12.5" cy="23" r="1" fill="#FFF9EC" />
-                <circle cx="19" cy="20.5" r="1.2" fill="#FFF9EC" />
-              </svg>
-            </div>
-            <div className="brand-text-wrapper">
-              <div className="brand-title-row">
-                <span className="brand-title">The Secret of Salt</span>
-                <span className="brand-grade-tag">SMA/MA XI • Fase F</span>
+      {/* 1. Mobile Top Bar (Visible only on screens < 1024px) */}
+      <div className="sidebar-mobile-bar" id="mobile-top-bar">
+        <a href="#beranda" className="mobile-bar-brand" onClick={(e) => handleNavClick(e, '#beranda')}>
+          <div className="mobile-bar-logo">
+            <svg
+              style={{ width: '22px', height: '22px' }}
+              viewBox="0 0 32 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 4H20M14 4V11L8.3 22.4C7.4 24.2 8.7 26.3 10.7 26.3H21.3C23.3 26.3 24.6 24.2 23.7 22.4L18 11V4"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M10.2 18.5C12.4 17.5 14.6 19.5 17 18.5C19.2 17.5 21.8 18.5 21.8 18.5"
+                stroke="#FFD166"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+          <span className="mobile-bar-title">The Secret of Salt</span>
+        </a>
+
+        <button
+          type="button"
+          className="mobile-bar-hamburger"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label={mobileMenuOpen ? 'Tutup menu samping' : 'Buka menu samping'}
+          aria-expanded={mobileMenuOpen}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      {/* 2. Mobile Backdrop Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* 3. Main Left Sidebar (Disamping Kiri Kebawah Secara Berurutan Terstruktur) */}
+      <aside
+        className={`sidebar-panel ${mobileMenuOpen ? 'open' : ''}`}
+        aria-label="Navigasi Panel Beranda"
+        id="beranda"
+      >
+        {/* A. Bagian Atas: Identitas / Brand Media */}
+        <div className="sidebar-brand-block">
+          <div className="sidebar-brand-top">
+            <a
+              href="#beranda"
+              className="sidebar-brand-link"
+              onClick={(e) => handleNavClick(e, '#beranda')}
+              aria-label="Kembali ke atas Beranda"
+            >
+              <div className="sidebar-brand-logo">
+                <svg
+                  style={{ width: '26px', height: '26px' }}
+                  viewBox="0 0 32 32"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 4H20M14 4V11L8.3 22.4C7.4 24.2 8.7 26.3 10.7 26.3H21.3C23.3 26.3 24.6 24.2 23.7 22.4L18 11V4"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M10.2 18.5C12.4 17.5 14.6 19.5 17 18.5C19.2 17.5 21.8 18.5 21.8 18.5"
+                    stroke="#FFD166"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="16" cy="22" r="1.5" fill="#FFF9EC" />
+                  <circle cx="12.5" cy="23" r="1" fill="#FFF9EC" />
+                  <circle cx="19" cy="20.5" r="1.2" fill="#FFF9EC" />
+                </svg>
               </div>
-              <span className="brand-tagline">Hydrolysis Adventure — Explore the Ions, Discover the pH!</span>
-            </div>
-          </a>
 
-          {/* 2. Desktop Nav Links */}
-          <nav className="navbar-desktop-nav" aria-label="Navigasi Utama">
-            <ul className="nav-links-list">
-              {navLinks.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className={`nav-link ${link.active ? 'active' : ''}`}
-                    onClick={(e) => handleNavClick(e, link.href)}
-                  >
-                    {link.label}
-                    {link.active && <span className="active-dot" />}
-                  </a>
-                </li>
-              ))}
+              <div className="sidebar-brand-info">
+                <span className="sidebar-brand-title">The Secret of Salt</span>
+                <span className="sidebar-brand-tag">XI • FASE F</span>
+              </div>
+            </a>
+
+            <button
+              type="button"
+              className="sidebar-close-btn"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Tutup panel"
+            >
+              ✕
+            </button>
+          </div>
+
+          <p className="sidebar-brand-tagline">
+            Hydrolysis Adventure — Explore the Ions, Discover the pH!
+          </p>
+        </div>
+
+        {/* B. Bagian Tengah (Scrollable): Menu Navigasi, Hak Akses, dan Pengaturan */}
+        <div className="sidebar-middle-scroll">
+          {/* B.1. Menu Navigasi Utama */}
+          <div className="sidebar-section">
+            <span className="sidebar-section-title">Navigasi Belajar</span>
+            <ul className="sidebar-nav-list">
+              {navLinks.map((link) => {
+                const isActive = activeHash === link.href;
+                return (
+                  <li key={link.label} className="sidebar-nav-item">
+                    <a
+                      href={link.href}
+                      className={`sidebar-nav-link ${isActive ? 'active' : ''}`}
+                      onClick={(e) => handleNavClick(e, link.href)}
+                    >
+                      <div className="sidebar-nav-left">
+                        <span className="sidebar-nav-icon">{link.icon}</span>
+                        <span>{link.label}</span>
+                      </div>
+                      {isActive && <span className="sidebar-active-dot" />}
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
-          </nav>
+          </div>
 
-          {/* 3. Action Buttons & Options (Tema/Bantuan & CTA) */}
-          <div className="navbar-actions">
-            {/* Opsi Tema: Eye Care Warm Ivory per PRD */}
-            <button
-              type="button"
-              className={`theme-toggle-btn ${warmMode ? 'active' : ''}`}
-              onClick={toggleTheme}
-              title={warmMode ? 'Ganti ke Mode Normal' : 'Ganti ke Mode Ramah Mata (Warm Ivory)'}
-              aria-label="Alihkan mode kenyamanan mata"
-            >
-              <span aria-hidden="true">{warmMode ? '☀️' : '🌙'}</span>
-              <span className="toggle-label">{warmMode ? 'Ivory' : 'Standar'}</span>
-            </button>
-
-            {/* Opsi Bantuan / Panduan Belajar */}
-            <button
-              type="button"
-              className="navbar-help-btn"
-              onClick={() => setHelpModalOpen(true)}
-              aria-label="Buka panduan bantuan belajar"
-              title="Bantuan & Petunjuk Belajar"
-            >
-              <span className="help-icon" aria-hidden="true">💡</span>
-              <span className="help-label">Bantuan</span>
-            </button>
-
-            {/* CTA Button "Mulai Belajar" */}
-            <button
-              type="button"
-              className="navbar-cta-btn"
-              onClick={onStartClick}
-              aria-label="Mulai Belajar Sekarang"
-            >
-              <span className="btn-sparkle" aria-hidden="true">✨</span>
-              <span>Mulai Belajar</span>
-            </button>
-
-            {/* Auth Actions: Login / Register or Dashboard */}
-            {isAuthenticated ? (
-              <div className="navbar-auth-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {user?.role === 'teacher' && user?.email?.toLowerCase().trim() === 'khoirun.nisa.2403316@students.um.ac.id' && (
+          {/* B.2. Akses Khusus: Panel Guru (Khusus Akun Guru) & Dashboard Siswa */}
+          {isAuthenticated && (
+            <div className="sidebar-section">
+              <span className="sidebar-section-title">Area Pengguna</span>
+              <div className="sidebar-special-pills">
+                {isAuthorizedTeacher && (
                   <Link
                     to="/teacher"
-                    className="navbar-teacher-pill"
+                    className="sidebar-teacher-btn"
+                    onClick={() => setMobileMenuOpen(false)}
                     title="Buka Panel Pengampu Guru"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'linear-gradient(135deg, #164E63 0%, #0F766E 100%)',
-                      color: '#FFFFFF',
-                      fontWeight: '800',
-                      fontSize: '0.85rem',
-                      textDecoration: 'none',
-                      boxShadow: '0 2px 8px rgba(15, 118, 110, 0.25)',
-                      transition: 'all var(--transition-fast)'
-                    }}
                   >
-                    <span aria-hidden="true">👩‍🏫</span>
-                    <span>Panel Guru</span>
+                    <span>👩‍🏫</span>
+                    <span>Panel Pengampu Guru</span>
                   </Link>
                 )}
                 <Link
                   to="/dashboard"
-                  className="navbar-dashboard-pill"
-                  title="Buka Dashboard Belajar Siswa"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'rgba(15, 118, 110, 0.1)',
-                    color: '#0F766E',
-                    fontWeight: '700',
-                    fontSize: '0.88rem',
-                    textDecoration: 'none',
-                    border: '1px solid rgba(15, 118, 110, 0.3)',
-                    transition: 'all var(--transition-fast)'
-                  }}
+                  className="sidebar-dashboard-btn"
+                  onClick={() => setMobileMenuOpen(false)}
+                  title="Buka Dashboard Belajar Anda"
                 >
-                  <span aria-hidden="true">👤</span>
-                  <span className="truncate max-w-[120px]">{user?.fullName?.split(' ')[0] || 'Dashboard'}</span>
-                </Link>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="navbar-logout-btn"
-                  title="Keluar dari akun Anda"
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'transparent',
-                    color: '#DC2626',
-                    fontWeight: '700',
-                    fontSize: '0.85rem',
-                    border: '1px solid #FECACA',
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-fast)'
-                  }}
-                >
-                  Keluar
-                </button>
-              </div>
-            ) : (
-              <div className="navbar-auth-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Link
-                  to="/login"
-                  className="navbar-login-btn"
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'transparent',
-                    color: 'var(--color-deep-navy)',
-                    fontWeight: '700',
-                    fontSize: '0.88rem',
-                    textDecoration: 'none',
-                    border: '1.5px solid var(--color-border)',
-                    transition: 'all var(--transition-fast)'
-                  }}
-                >
-                  Masuk
-                </Link>
-                <Link
-                  to="/register"
-                  className="navbar-register-btn"
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    background: '#0F766E',
-                    color: '#FFFFFF',
-                    fontWeight: '700',
-                    fontSize: '0.88rem',
-                    textDecoration: 'none',
-                    boxShadow: '0 2px 8px rgba(15, 118, 110, 0.25)',
-                    transition: 'all var(--transition-fast)'
-                  }}
-                >
-                  Daftar
+                  <span>👤</span>
+                  <span>Dashboard {isAuthorizedTeacher ? 'Pengampu' : 'Siswa'}</span>
                 </Link>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Hamburger Button for Mobile */}
-            <button
-              type="button"
-              className={`navbar-hamburger ${mobileMenuOpen ? 'open' : ''}`}
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label={mobileMenuOpen ? 'Tutup navigasi' : 'Buka navigasi'}
-              aria-expanded={mobileMenuOpen}
-            >
-              <span className="hamburger-bar"></span>
-              <span className="hamburger-bar"></span>
-              <span className="hamburger-bar"></span>
-            </button>
+          {/* B.3. Fitur Belajar, Tema, dan Bantuan */}
+          <div className="sidebar-section">
+            <span className="sidebar-section-title">Fitur & Pengaturan</span>
+            <div className="sidebar-util-buttons">
+              {/* Tombol Panduan Belajar */}
+              <button
+                type="button"
+                className="sidebar-util-btn"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setHelpModalOpen(true);
+                }}
+                title="Buka Petunjuk & Panduan Belajar Kimia"
+              >
+                <span style={{ fontSize: '1.05rem' }}>💡</span>
+                <span>Panduan Belajar</span>
+              </button>
+
+              {/* Tombol Alih Mode Ramah Mata */}
+              <button
+                type="button"
+                className={`sidebar-util-btn ${warmMode ? 'warm-active' : ''}`}
+                onClick={toggleTheme}
+                title={warmMode ? 'Ganti ke Mode Normal' : 'Ganti ke Mode Ramah Mata (Warm Ivory)'}
+              >
+                <span style={{ fontSize: '1.05rem' }}>{warmMode ? '☀️' : '🌙'}</span>
+                <span>Mode: {warmMode ? 'Hangat Ivory' : 'Standar'}</span>
+              </button>
+
+              {/* CTA Mulai Belajar */}
+              <button
+                type="button"
+                className="sidebar-cta-btn"
+                onClick={handleStartCta}
+                title="Mulai Petualangan Belajar Hidrolisis Garam"
+              >
+                <span>✨</span>
+                <span>Mulai Belajar</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Mobile Drawer */}
-        {mobileMenuOpen && (
-          <div className="navbar-mobile-drawer" role="dialog" aria-modal="true">
-            <ul className="mobile-nav-list">
-              {navLinks.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className={`mobile-nav-link ${link.active ? 'active' : ''}`}
-                    onClick={(e) => handleNavClick(e, link.href)}
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-              <li className="mobile-help-item">
-                <button
-                  type="button"
-                  className="mobile-help-btn"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setHelpModalOpen(true);
-                  }}
-                >
-                  💡 Buka Petunjuk & Bantuan Belajar
-                </button>
-              </li>
-              <li className="mobile-cta-item">
-                <button
-                  type="button"
-                  className="mobile-cta-btn"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onStartClick?.();
-                  }}
-                >
-                  🚀 Mulai Petualangan Belajar
-                </button>
-              </li>
-              {/* Mobile Auth Items */}
-              {isAuthenticated ? (
-                <>
-                  {user?.role === 'teacher' && user?.email?.toLowerCase().trim() === 'khoirun.nisa.2403316@students.um.ac.id' && (
-                    <li className="mobile-auth-item">
-                      <Link
-                        to="/teacher"
-                        className="mobile-nav-link"
-                        onClick={() => setMobileMenuOpen(false)}
-                        style={{ fontWeight: '800', color: '#164E63' }}
-                      >
-                        👩‍🏫 Panel Pengampu Guru
-                      </Link>
-                    </li>
-                  )}
-                  <li className="mobile-auth-item">
-                    <Link
-                      to="/dashboard"
-                      className="mobile-nav-link"
-                      onClick={() => setMobileMenuOpen(false)}
-                      style={{ fontWeight: '700', color: '#0F766E' }}
-                    >
-                      👤 Buka Dashboard ({user?.fullName?.split(' ')[0]})
-                    </Link>
-                  </li>
-                  <li className="mobile-auth-item">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        logout();
-                      }}
-                      className="mobile-help-btn"
-                      style={{ color: '#DC2626' }}
-                    >
-                      🚪 Keluar dari Akun
-                    </button>
-                  </li>
-                </>
-              ) : (
-                <>
-                  <li className="mobile-auth-item">
-                    <Link
-                      to="/login"
-                      className="mobile-nav-link"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      🔐 Masuk ke Akun
-                    </Link>
-                  </li>
-                  <li className="mobile-auth-item">
-                    <Link
-                      to="/register"
-                      className="mobile-nav-link"
-                      onClick={() => setMobileMenuOpen(false)}
-                      style={{ fontWeight: '700', color: '#0F766E' }}
-                    >
-                      ✨ Daftar Akun Baru
-                    </Link>
-                  </li>
-                </>
-              )}
-            </ul>
-          </div>
-        )}
-      </header>
+        {/* C. Bagian Bawah: Akun Pengguna / Autentikasi */}
+        <div className="sidebar-bottom-block">
+          <span className="sidebar-section-title">Akun Belajar</span>
+          {isAuthenticated ? (
+            <div className="sidebar-user-card">
+              <div className="sidebar-user-left">
+                <div className="sidebar-user-avatar">
+                  {user?.fullName?.charAt(0)?.toUpperCase() || 'S'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span className="sidebar-user-name" title={user?.fullName || 'Pengguna'}>
+                    {user?.fullName || 'Pengguna'}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: '#64748B' }}>
+                    {isAuthorizedTeacher ? 'Guru Pengampu' : 'Siswa'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+                className="sidebar-btn-logout"
+                title="Keluar dari akun"
+              >
+                Keluar
+              </button>
+            </div>
+          ) : (
+            <div className="sidebar-auth-guest">
+              <Link
+                to="/login"
+                className="sidebar-btn-login"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Masuk ke Akun
+              </Link>
+              <Link
+                to="/register"
+                className="sidebar-btn-register"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                ✨ Daftar Akun Baru
+              </Link>
+            </div>
+          )}
+        </div>
+      </aside>
 
-      {/* Modal Bantuan & Panduan Belajar */}
+      {/* 4. Modal Panduan & Bantuan Belajar */}
       {helpModalOpen && (
         <div
           className="modal-backdrop"
@@ -458,4 +436,3 @@ export default function Navbar({ onStartClick }) {
     </>
   );
 }
-

@@ -74,6 +74,21 @@ Dokumen ini mencatat keputusan arsitektur, progres pengerjaan modul, dan riwayat
 
 ---
 
+## [2026-11-17] Pembersihan Data Dummy / Mock Responden Siswa pada Panel Guru
+- **Kebutuhan Pengguna**: Menghapus seluruh data *dummy / mock* responden siswa (Ahmad Fauzi, Nabila Putri, Budi Santoso, Dewi Lestari) dari Panel Guru dan hanya menampilkan data asli pengumpulan kuis dari siswa riil.
+- **Tindakan yang Dilakukan**:
+  1. Menghapus fungsi `getPreSeededSubmissions()` dan generator data tiruan dari `src/services/firestoreQuizService.js`.
+  2. Menghapus cache lokal tiruan `chem_teacher_submissions_cache` dan pemanggilan data riwayat mock.
+  3. Memastikan fungsi `fetchTeacherClassSubmissions()` murni mengambil data pengumpulan kuis asli dari koleksi `quiz_attempts` Cloud Firestore dan mengabaikan entri berawalan `att_demo_`.
+  4. Menambahkan status kosong (*empty state*) yang elegan dan informatif pada tab analisis butir di `src/pages/TeacherDashboard.jsx` jika belum ada siswa yang mengumpulkan kuis.
+- **Kepatuhan Aturan Pengguna**:
+  - Tidak melakukan commit / merge git otomatis.
+- **Hasil Verifikasi**:
+  - `oxlint`: 0 warning, 0 error.
+  - `tsc -b && vite build`: Sukses (67 modul transformed, 0 error).
+
+---
+
 ## [2026-11-17] Eksklusivitas Akun Guru Pengampu (khoirun.nisa.2403316@students.um.ac.id) & Penyembunyian Tombol Panel Guru
 - **Kebutuhan Pengguna**:
   1. Hanya email `khoirun.nisa.2403316@students.um.ac.id` yang diizinkan menjadi akun Guru (`role: 'teacher'`). Seluruh akun lain (Google, pendaftaran email biasa, dan akun demo) tidak dapat masuk ke Panel Guru dan secara otomatis berstatus Siswa (`role: 'student'`).
@@ -92,6 +107,27 @@ Dokumen ini mencatat keputusan arsitektur, progres pengerjaan modul, dan riwayat
 - **Hasil Verifikasi**:
   - `oxlint`: 0 warning, 0 error.
   - `tsc -b && vite build`: Sukses (67 modul transformed, 0 error).
+
+---
+
+## [2026-11-17] Transformasi Panel Navigasi Beranda Menjadi Left Sidebar Vertikal Terstruktur
+- **Kebutuhan Pengguna**: Mengubah susunan panel navigasi beranda yang sebelumnya horizontal memanjang di atas menjadi navigasi samping kiri yang tersusun rapi ke bawah secara berurutan dan terstruktur.
+- **Tindakan & Solusi Arsitektur UI/UX**:
+  1. **Pembuatan Stylesheet [Navbar.css](file:///c:/Users/Khoirun%20Nisa%27%20Rakhma/WEBB/src/Navbar.css)**:
+     - Mengubah container desktop (`min-width: 1024px`) menjadi bilah samping kiri permanen (`position: fixed; left: 0; top: 0; bottom: 0; width: 280px`).
+     - Menyediakan custom thin scrollbar dan drawer responsif pada perangkat seluler (`< 1024px`) yang meluncur mulus dari kiri ke kanan dengan backdrop overlay.
+  2. **Hierarki Vertikal Berurutan ke Bawah di [Navbar.jsx](file:///c:/Users/Khoirun%20Nisa%27%20Rakhma/WEBB/src/Navbar.jsx)**:
+     - **Bagian 1 (Atas)**: Identitas/Brand Media (Logo Beaker, "The Secret of Salt", badge "XI • FASE F", tagline).
+     - **Bagian 2 (Tengah Atas)**: `Navigasi Belajar` (Beranda, Topik Prasyarat, Lab Maya & Simulasi, Kuis Modul 1, Tentang Media) dengan active scroll indicator.
+     - **Bagian 3 (Area Pengguna)**: Tombol spesial `Panel Pengampu Guru` (hanya muncul untuk `khoirun.nisa.2403316@students.um.ac.id`) dan `Dashboard Siswa`.
+     - **Bagian 4 (Utilitas)**: Panduan Belajar, Mode Tampilan Ramah Mata (Warm Ivory), dan tombol CTA "Mulai Belajar".
+     - **Bagian 5 (Bawah)**: `Akun Belajar` (Kartu profil + tombol keluar saat login; tombol Masuk & Daftar Akun saat tamu).
+  3. **Penyesuaian Layout Halaman di [App.css](file:///c:/Users/Khoirun%20Nisa%27%20Rakhma/WEBB/src/App.css)**:
+     - Menambahkan offset desktop `padding-left: 280px` pada `.app-wrapper` sehingga seluruh konten beranda (Hero, Beaker Lab, Topik Prasyarat, Kuis Modul 1, Footer) mengalir seimbang di sisi kanan tanpa terpotong atau tertimpa sidebar.
+- **Hasil Verifikasi**:
+  - `oxlint`: 0 warning, 0 error.
+  - `tsc -b && vite build`: Sukses (68 modul transformed, 0 error).
+  - Tidak ada commit / merge otomatis yang dijalankan.
 
 ---
 
@@ -137,6 +173,21 @@ Dokumen ini mencatat keputusan arsitektur, progres pengerjaan modul, dan riwayat
 
 ---
 
+## [2026-11-17] Pembersihan Data Dummy / Mock Responden Siswa pada Panel Guru
+- **Kebutuhan Pengguna**: Menghapus seluruh data *dummy / mock* responden siswa (Ahmad Fauzi, Nabila Putri, Budi Santoso, Dewi Lestari) dari Panel Guru dan hanya menampilkan data asli pengumpulan kuis dari siswa riil.
+- **Tindakan yang Dilakukan**:
+  1. Menghapus fungsi `getPreSeededSubmissions()` dan generator data tiruan dari `src/services/firestoreQuizService.js`.
+  2. Menghapus cache lokal tiruan `chem_teacher_submissions_cache` dan pemanggilan data riwayat mock.
+  3. Memastikan fungsi `fetchTeacherClassSubmissions()` murni mengambil data pengumpulan kuis asli dari koleksi `quiz_attempts` Cloud Firestore dan mengabaikan entri berawalan `att_demo_`.
+  4. Menambahkan status kosong (*empty state*) yang elegan dan informatif pada tab analisis butir di `src/pages/TeacherDashboard.jsx` jika belum ada siswa yang mengumpulkan kuis.
+- **Kepatuhan Aturan Pengguna**:
+  - Tidak melakukan commit / merge git otomatis.
+- **Hasil Verifikasi**:
+  - `oxlint`: 0 warning, 0 error.
+  - `tsc -b && vite build`: Sukses (67 modul transformed, 0 error).
+
+---
+
 ## [2026-11-17] Eksklusivitas Akun Guru Pengampu (khoirun.nisa.2403316@students.um.ac.id) & Penyembunyian Tombol Panel Guru
 - **Kebutuhan Pengguna**:
   1. Hanya email `khoirun.nisa.2403316@students.um.ac.id` yang diizinkan menjadi akun Guru (`role: 'teacher'`). Seluruh akun lain (Google, pendaftaran email biasa, dan akun demo) tidak dapat masuk ke Panel Guru dan secara otomatis berstatus Siswa (`role: 'student'`).
@@ -155,3 +206,24 @@ Dokumen ini mencatat keputusan arsitektur, progres pengerjaan modul, dan riwayat
 - **Hasil Verifikasi**:
   - `oxlint`: 0 warning, 0 error.
   - `tsc -b && vite build`: Sukses (67 modul transformed, 0 error).
+
+---
+
+## [2026-11-17] Transformasi Panel Navigasi Beranda Menjadi Left Sidebar Vertikal Terstruktur
+- **Kebutuhan Pengguna**: Mengubah susunan panel navigasi beranda yang sebelumnya horizontal memanjang di atas menjadi navigasi samping kiri yang tersusun rapi ke bawah secara berurutan dan terstruktur.
+- **Tindakan & Solusi Arsitektur UI/UX**:
+  1. **Pembuatan Stylesheet [Navbar.css](file:///c:/Users/Khoirun%20Nisa%27%20Rakhma/WEBB/src/Navbar.css)**:
+     - Mengubah container desktop (`min-width: 1024px`) menjadi bilah samping kiri permanen (`position: fixed; left: 0; top: 0; bottom: 0; width: 280px`).
+     - Menyediakan custom thin scrollbar dan drawer responsif pada perangkat seluler (`< 1024px`) yang meluncur mulus dari kiri ke kanan dengan backdrop overlay.
+  2. **Hierarki Vertikal Berurutan ke Bawah di [Navbar.jsx](file:///c:/Users/Khoirun%20Nisa%27%20Rakhma/WEBB/src/Navbar.jsx)**:
+     - **Bagian 1 (Atas)**: Identitas/Brand Media (Logo Beaker, "The Secret of Salt", badge "XI • FASE F", tagline).
+     - **Bagian 2 (Tengah Atas)**: `Navigasi Belajar` (Beranda, Topik Prasyarat, Lab Maya & Simulasi, Kuis Modul 1, Tentang Media) dengan active scroll indicator.
+     - **Bagian 3 (Area Pengguna)**: Tombol spesial `Panel Pengampu Guru` (hanya muncul untuk `khoirun.nisa.2403316@students.um.ac.id`) dan `Dashboard Siswa`.
+     - **Bagian 4 (Utilitas)**: Panduan Belajar, Mode Tampilan Ramah Mata (Warm Ivory), dan tombol CTA "Mulai Belajar".
+     - **Bagian 5 (Bawah)**: `Akun Belajar` (Kartu profil + tombol keluar saat login; tombol Masuk & Daftar Akun saat tamu).
+  3. **Penyesuaian Layout Halaman di [App.css](file:///c:/Users/Khoirun%20Nisa%27%20Rakhma/WEBB/src/App.css)**:
+     - Menambahkan offset desktop `padding-left: 280px` pada `.app-wrapper` sehingga seluruh konten beranda (Hero, Beaker Lab, Topik Prasyarat, Kuis Modul 1, Footer) mengalir seimbang di sisi kanan tanpa terpotong atau tertimpa sidebar.
+- **Hasil Verifikasi**:
+  - `oxlint`: 0 warning, 0 error.
+  - `tsc -b && vite build`: Sukses (68 modul transformed, 0 error).
+  - Tidak ada commit / merge otomatis yang dijalankan.

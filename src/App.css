@@ -13,6 +13,13 @@
   background-color: var(--color-bg-body);
   position: relative;
   overflow-x: hidden;
+  transition: padding-left 0.3s ease;
+}
+
+@media (min-width: 1024px) {
+  .app-wrapper {
+    padding-left: 280px; /* Left sidebar navigation offset */
+  }
 }
 
 /* Background subtle ambient glows */

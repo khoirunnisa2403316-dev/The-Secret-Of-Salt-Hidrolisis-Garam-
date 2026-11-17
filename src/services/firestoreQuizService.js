@@ -15,7 +15,6 @@ import { soalHidrolisisGaram, SOAL_VERSION } from '../data/soalHidrolisisGaram';
 const STORAGE_KEYS = {
   GUEST_HISTORY: 'secret_of_salt_guest_m1_history',
   MIGRATED_MAP: 'chem_guest_migrated_map',
-  TEACHER_SEED_CACHE: 'chem_teacher_submissions_cache',
 };
 
 /**
@@ -314,159 +313,24 @@ export async function migrateLocalGuestAttemptsToFirestore(userId) {
 }
 
 /**
- * 5. Pre-seeded Realistic Submissions for Testing 2 Students & 1 Teacher
- */
-function getPreSeededSubmissions() {
-  const now = new Date();
-  const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
-  const oneDayAgo = new Date(now.getTime() - 26 * 60 * 60 * 1000).toISOString();
-  const threeHoursAgo = new Date(now.getTime() - 3.5 * 60 * 60 * 1000).toISOString();
-  const yesterday = new Date(now.getTime() - 22 * 60 * 60 * 1000).toISOString();
-
-  // Helper answers generator
-  const createAnswers = (wrongMap = {}) => {
-    const answers = {};
-    soalHidrolisisGaram.forEach((q) => {
-      const isWrong = Boolean(wrongMap[q.id]);
-      const selected = isWrong ? wrongMap[q.id] : q.jawabanBenar;
-      answers[q.id] = {
-        questionId: q.id,
-        conceptTag: q.konsep,
-        selectedOption: selected,
-        correctOption: q.jawabanBenar,
-        isCorrect: !isWrong,
-        answeredAt: now.toISOString(),
-      };
-    });
-    return answers;
-  };
-
-  return [
-    // SISWA 1: Ahmad Fauzi (XI-MIPA-1) — 1st Attempt: Skor 90 (Salah di m1-q8: salah rumus pH)
-    {
-      attemptId: 'att_demo_ahmad_01',
-      userId: 'usr_demo_student_01',
-      userFullName: 'Ahmad Fauzi',
-      classGrade: 'XI-MIPA-1',
-      schoolName: 'SMA Negeri 1 Pembelajaran',
-      moduleId: 'modul-1-konsep-dasar',
-      activityName: 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
-      attemptType: 'Percobaan Ke-1 (Utama)',
-      questionVersion: SOAL_VERSION,
-      totalQuestions: 10,
-      correctCount: 9,
-      score: 90,
-      startedAt: new Date(new Date(twoHoursAgo).getTime() - 10 * 60 * 1000).toISOString(),
-      completedAt: twoHoursAgo,
-      serverReceivedAt: twoHoursAgo,
-      answers: createAnswers({
-        'm1-q8': 'A', // Terkecoh memilih pH asam 5 (rumus asam lemah) untuk CH3COONa
-      }),
-    },
-
-    // SISWA 2: Nabila Putri (XI-MIPA-1) — 1st Attempt: Skor 70 (Salah di m1-q3, m1-q7, m1-q8)
-    {
-      attemptId: 'att_demo_nabila_01',
-      userId: 'usr_demo_student_02',
-      userFullName: 'Nabila Putri',
-      classGrade: 'XI-MIPA-1',
-      schoolName: 'SMA Negeri 1 Pembelajaran',
-      moduleId: 'modul-1-konsep-dasar',
-      activityName: 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
-      attemptType: 'Percobaan Ke-1 (Utama)',
-      questionVersion: SOAL_VERSION,
-      totalQuestions: 10,
-      correctCount: 7,
-      score: 70,
-      startedAt: new Date(new Date(oneDayAgo).getTime() - 12 * 60 * 1000).toISOString(),
-      completedAt: oneDayAgo,
-      serverReceivedAt: oneDayAgo,
-      answers: createAnswers({
-        'm1-q3': 'C', // Terkecoh Na+ dan CH3COO- sama-sama terhidrolisis
-        'm1-q7': 'B', // Terbalik rumus Kh = Kw / Ka
-        'm1-q8': 'A', // Terkecoh rumus pH asam 5 untuk CH3COONa
-      }),
-    },
-
-    // SISWA 2: Nabila Putri (XI-MIPA-1) — 2nd Attempt (Remedial): Skor 90 (Salah di m1-q7)
-    {
-      attemptId: 'att_demo_nabila_02',
-      userId: 'usr_demo_student_02',
-      userFullName: 'Nabila Putri',
-      classGrade: 'XI-MIPA-1',
-      schoolName: 'SMA Negeri 1 Pembelajaran',
-      moduleId: 'modul-1-konsep-dasar',
-      activityName: 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
-      attemptType: 'Percobaan Ke-2 (Remedial)',
-      questionVersion: SOAL_VERSION,
-      totalQuestions: 10,
-      correctCount: 9,
-      score: 90,
-      startedAt: new Date(new Date(threeHoursAgo).getTime() - 8 * 60 * 1000).toISOString(),
-      completedAt: threeHoursAgo,
-      serverReceivedAt: threeHoursAgo,
-      answers: createAnswers({
-        'm1-q7': 'B', // Masih keliru di tetapan Kh
-      }),
-    },
-
-    // SISWA 3: Budi Santoso (XI-MIPA-1) — Skor 60
-    {
-      attemptId: 'att_demo_budi_01',
-      userId: 'usr_demo_student_03',
-      userFullName: 'Budi Santoso',
-      classGrade: 'XI-MIPA-1',
-      schoolName: 'SMA Negeri 1 Pembelajaran',
-      moduleId: 'modul-1-konsep-dasar',
-      activityName: 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
-      attemptType: 'Percobaan Ke-1 (Utama)',
-      questionVersion: SOAL_VERSION,
-      totalQuestions: 10,
-      correctCount: 6,
-      score: 60,
-      startedAt: new Date(new Date(yesterday).getTime() - 15 * 60 * 1000).toISOString(),
-      completedAt: yesterday,
-      serverReceivedAt: yesterday,
-      answers: createAnswers({
-        'm1-q2': 'C',
-        'm1-q3': 'C',
-        'm1-q8': 'A',
-        'm1-q9': 'A',
-      }),
-    },
-
-    // SISWA 4: Dewi Lestari (XI-MIPA-2) — Skor 80
-    {
-      attemptId: 'att_demo_dewi_01',
-      userId: 'usr_demo_student_04',
-      userFullName: 'Dewi Lestari',
-      classGrade: 'XI-MIPA-2',
-      schoolName: 'SMA Negeri 1 Pembelajaran',
-      moduleId: 'modul-1-konsep-dasar',
-      activityName: 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
-      attemptType: 'Percobaan Ke-1 (Utama)',
-      questionVersion: SOAL_VERSION,
-      totalQuestions: 10,
-      correctCount: 8,
-      score: 80,
-      startedAt: new Date(new Date(yesterday).getTime() - 11 * 60 * 1000).toISOString(),
-      completedAt: yesterday,
-      serverReceivedAt: yesterday,
-      answers: createAnswers({
-        'm1-q7': 'C',
-        'm1-q8': 'A',
-      }),
-    },
-  ];
-}
-
-/**
- * 6. Fetch Teacher Class Submissions (Live Firestore or Rich Pre-seeded Local Cache)
+ * 5. Fetch Teacher Class Submissions (REAL STUDENT DATA ONLY)
+ * Retrieves real quiz attempts submitted by students from Cloud Firestore.
+ * If running in local browser environment, checks for real student attempt records.
+ * Zero dummy / mock student data.
  */
 export async function fetchTeacherClassSubmissions(selectedClass = 'all') {
+  // Purge any legacy dummy / mock submission caches
+  try {
+    localStorage.removeItem('chem_teacher_submissions_cache');
+    localStorage.removeItem('chem_user_history_usr_demo_student_01');
+    localStorage.removeItem('chem_user_history_usr_demo_student_02');
+  } catch {
+    // ignore
+  }
+
   let list = [];
 
-  // Try live Cloud Firestore if configured
+  // 1. Fetch real student submissions from live Cloud Firestore
   if (isFirebaseConfigured() && db) {
     try {
       const attemptsRef = collection(db, 'quiz_attempts');
@@ -477,56 +341,54 @@ export async function fetchTeacherClassSubmissions(selectedClass = 'all') {
 
       const snapshot = await getDocs(q);
       snapshot.forEach((d) => {
-        list.push({ ...d.data(), serverReceivedAt: d.data().syncedAt || d.data().completedAt });
-      });
-    } catch (err) {
-      console.warn('Firestore teacher fetch fallback to cache:', err);
-    }
-  }
-
-  // If live Firestore empty or unconfigured, use persistent cache + pre-seeded data
-  if (list.length === 0) {
-    try {
-      const cached = localStorage.getItem(STORAGE_KEYS.TEACHER_SEED_CACHE);
-      if (cached) {
-        list = JSON.parse(cached);
-      } else {
-        list = getPreSeededSubmissions();
-        localStorage.setItem(STORAGE_KEYS.TEACHER_SEED_CACHE, JSON.stringify(list));
-      }
-    } catch {
-      list = getPreSeededSubmissions();
-    }
-  }
-
-  // Also include any user-submitted attempts from local storage of testing browser
-  try {
-    const rawHistoryAhmad = localStorage.getItem('chem_user_history_usr_demo_student_01');
-    if (rawHistoryAhmad) {
-      const userItems = JSON.parse(rawHistoryAhmad);
-      userItems.forEach((item) => {
-        if (!list.some((l) => l.attemptId === item.attemptId)) {
-          list.unshift({
-            ...item,
-            userFullName: item.userFullName || 'Ahmad Fauzi',
-            classGrade: item.classGrade || 'XI-MIPA-1',
-            activityName: 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
-            attemptType: item.attemptType || 'Percobaan Siswa',
-            serverReceivedAt: item.completedAt || new Date().toISOString(),
-          });
+        const data = d.data();
+        // Exclude any legacy demo / mock attempt entries
+        if (!data.attemptId?.startsWith('att_demo_')) {
+          list.push({ ...data, serverReceivedAt: data.syncedAt || data.completedAt });
         }
       });
+    } catch (err) {
+      console.warn('Firestore teacher fetch notice:', err);
+    }
+  }
+
+  // 2. Also check for real student quiz attempts stored in localStorage on this device
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const storageKey = localStorage.key(i);
+      if (storageKey && storageKey.startsWith('chem_user_history_') && !storageKey.includes('demo')) {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const userAttempts = JSON.parse(raw);
+          if (Array.isArray(userAttempts)) {
+            userAttempts.forEach((item) => {
+              if (item?.attemptId && !item.attemptId.startsWith('att_demo_')) {
+                if (!list.some((existing) => existing.attemptId === item.attemptId)) {
+                  list.push({
+                    ...item,
+                    userFullName: item.userFullName || 'Siswa',
+                    classGrade: item.classGrade || 'XI-MIPA-1',
+                    activityName: item.activityName || 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
+                    attemptType: item.attemptType || 'Percobaan Siswa',
+                    serverReceivedAt: item.syncedAt || item.completedAt || new Date().toISOString(),
+                  });
+                }
+              }
+            });
+          }
+        }
+      }
     }
   } catch {
     // ignore
   }
 
-  // Filter by classGrade if requested
+  // 3. Filter by classGrade if requested
   if (selectedClass && selectedClass !== 'all') {
     list = list.filter((item) => item.classGrade === selectedClass);
   }
 
-  // Sort descending by completion time
+  // 4. Sort descending by completion time
   list.sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
 
   return list;

@@ -548,77 +548,89 @@ export default function TeacherDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {itemAnalysis.items.map((item) => {
-                    const diffBadgeColor =
-                      item.difficulty === 'Mudah'
-                        ? '#16A34A'
-                        : item.difficulty === 'Sedang'
-                        ? '#D97706'
-                        : '#DC2626';
+                  {itemAnalysis.items.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '3rem 1rem', color: '#64748B' }}>
+                        <div style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>📭</div>
+                        <strong style={{ color: '#1E293B' }}>Belum Ada Data Pengumpulan Kuis Asli</strong>
+                        <p style={{ fontSize: '0.825rem', marginTop: '0.25rem' }}>
+                          Analisis butir soal dan sebaran frekuensi pilihan akan otomatis dihitung setelah responden siswa menyelesaikan kuis formatif.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    itemAnalysis.items.map((item) => {
+                      const diffBadgeColor =
+                        item.difficulty === 'Mudah'
+                          ? '#16A34A'
+                          : item.difficulty === 'Sedang'
+                          ? '#D97706'
+                          : '#DC2626';
 
-                    return (
-                      <tr key={item.id}>
-                        <td style={{ fontWeight: '800', textAlign: 'center' }}>{item.index}</td>
-                        <td>
-                          <span style={{ fontFamily: 'monospace', fontWeight: '800', color: '#0F766E' }}>
-                            {item.id}
-                          </span>
-                          <span style={{ display: 'block', fontSize: '0.725rem', color: '#64748B' }}>
-                            {item.konsep}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
-                            {['A', 'B', 'C', 'D'].map((opt) => {
-                              const isKey = opt === item.jawabanBenar;
-                              const isDistractorHigh =
-                                !isKey && item.mostPickedDistractor === opt && item.frequencies[opt].count > 0;
-                              let pillClass = isKey ? 'freq-pill key' : 'freq-pill distractor';
-                              if (isDistractorHigh) pillClass = 'freq-pill distractor-high';
-
-                              return (
-                                <span key={opt} className={pillClass} title={`Opsi ${opt}: ${item.frequencies[opt].count} siswa`}>
-                                  <strong>{opt}:</strong> {item.frequencies[opt].percentage}%
-                                  {isKey && ' ✓'}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </td>
-                        <td>
-                          <span style={{ fontWeight: '800', color: '#166534', backgroundColor: '#DCFCE7', padding: '0.2rem 0.6rem', borderRadius: '0.35rem' }}>
-                            Opsi {item.jawabanBenar}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: '0.8rem' }}>
-                            <span style={{ color: '#16A34A', fontWeight: '700' }}>{item.correctCount} Benar</span>
-                            {' / '}
-                            <span style={{ color: '#DC2626' }}>{item.wrongCount} Salah</span>
-                            <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748B' }}>
-                              ({item.correctPercentage}% Tuntas)
+                      return (
+                        <tr key={item.id}>
+                          <td style={{ fontWeight: '800', textAlign: 'center' }}>{item.index}</td>
+                          <td>
+                            <span style={{ fontFamily: 'monospace', fontWeight: '800', color: '#0F766E' }}>
+                              {item.id}
                             </span>
-                          </div>
-                        </td>
-                        <td>
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              padding: '0.2rem 0.55rem',
-                              borderRadius: '9999px',
-                              fontSize: '0.725rem',
-                              fontWeight: '800',
-                              color: diffBadgeColor,
-                              border: `1px solid ${diffBadgeColor}`,
-                              backgroundColor: '#FFFFFF',
-                            }}
-                          >
-                            {item.difficulty}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            <span style={{ display: 'block', fontSize: '0.725rem', color: '#64748B' }}>
+                              {item.konsep}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
+                              {['A', 'B', 'C', 'D'].map((opt) => {
+                                const isKey = opt === item.jawabanBenar;
+                                const isDistractorHigh =
+                                  !isKey && item.mostPickedDistractor === opt && item.frequencies[opt].count > 0;
+                                let pillClass = isKey ? 'freq-pill key' : 'freq-pill distractor';
+                                if (isDistractorHigh) pillClass = 'freq-pill distractor-high';
+
+                                return (
+                                  <span key={opt} className={pillClass} title={`Opsi ${opt}: ${item.frequencies[opt].count} siswa`}>
+                                    <strong>{opt}:</strong> {item.frequencies[opt].percentage}%
+                                    {isKey && ' ✓'}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: '800', color: '#166534', backgroundColor: '#DCFCE7', padding: '0.2rem 0.6rem', borderRadius: '0.35rem' }}>
+                              Opsi {item.jawabanBenar}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.8rem' }}>
+                              <span style={{ color: '#16A34A', fontWeight: '700' }}>{item.correctCount} Benar</span>
+                              {' / '}
+                              <span style={{ color: '#DC2626' }}>{item.wrongCount} Salah</span>
+                              <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748B' }}>
+                                ({item.correctPercentage}% Tuntas)
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '0.2rem 0.55rem',
+                                borderRadius: '9999px',
+                                fontSize: '0.725rem',
+                                fontWeight: '800',
+                                color: diffBadgeColor,
+                                border: `1px solid ${diffBadgeColor}`,
+                                backgroundColor: '#FFFFFF',
+                              }}
+                            >
+                              {item.difficulty}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
