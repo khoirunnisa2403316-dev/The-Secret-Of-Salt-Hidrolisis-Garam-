@@ -445,7 +445,7 @@ export function calculateItemAnalysis(submissions, attemptRule = 'latest') {
 
   // 2. Compute item statistics for each question 1-10
   const items = soalHidrolisisGaram.map((q, idx) => {
-    const counts = { A: 0, B: 0, C: 0, D: 0 };
+    const counts = { A: 0, B: 0, C: 0, D: 0, E: 0 };
     let correctCount = 0;
     let wrongCount = 0;
 
@@ -481,6 +481,7 @@ export function calculateItemAnalysis(submissions, attemptRule = 'latest') {
       B: { count: counts.B, percentage: totalAnswered ? Math.round((counts.B / totalAnswered) * 100) : 0 },
       C: { count: counts.C, percentage: totalAnswered ? Math.round((counts.C / totalAnswered) * 100) : 0 },
       D: { count: counts.D, percentage: totalAnswered ? Math.round((counts.D / totalAnswered) * 100) : 0 },
+      E: { count: counts.E, percentage: totalAnswered ? Math.round((counts.E / totalAnswered) * 100) : 0 },
     };
 
     // Find most picked distractor

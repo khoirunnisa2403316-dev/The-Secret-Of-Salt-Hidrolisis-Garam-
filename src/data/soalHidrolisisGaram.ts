@@ -13,6 +13,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'Ion-ion tertentu dari garam bereaksi dengan air sehingga memengaruhi pH.' },
       { id: 'C', teks: 'Semua ion garam menghasilkan ion H⁺.' },
       { id: 'D', teks: 'Hidrolisis hanya terjadi pada garam dari asam kuat dan basa kuat.' },
+      { id: 'E', teks: 'Kation dan anion dari semua garam selalu bereaksi dengan air.' },
     ],
     jawabanBenar: 'B',
     pembahasan:
@@ -28,6 +29,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'KNO₃' },
       { id: 'C', teks: 'CH₃COONa' },
       { id: 'D', teks: 'NH₄Cl' },
+      { id: 'E', teks: 'NaNO₃' },
     ],
     jawabanBenar: 'D',
     pembahasan:
@@ -43,6 +45,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'CH₃COO⁻' },
       { id: 'C', teks: 'Na⁺ dan CH₃COO⁻' },
       { id: 'D', teks: 'Tidak ada ion yang mengalami hidrolisis.' },
+      { id: 'E', teks: 'Ion CH₃COO⁻ tidak bereaksi dengan air karena berasal dari garam.' },
     ],
     jawabanBenar: 'B',
     pembahasan:
@@ -58,6 +61,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'Hidrolisis parsial anion' },
       { id: 'C', teks: 'Hidrolisis parsial kation' },
       { id: 'D', teks: 'Hidrolisis total' },
+      { id: 'E', teks: 'Hidrolisis hanya terjadi pada kation.' },
     ],
     jawabanBenar: 'D',
     pembahasan:
@@ -73,6 +77,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'CO₃²⁻ + H₂O ⇌ H⁺ + HCO₃⁻' },
       { id: 'C', teks: 'CO₃²⁻ + H₂O ⇌ CO₂ + H₂' },
       { id: 'D', teks: 'CO₃²⁻ + H₂O ⇌ H₂CO₃ + H₃O⁺' },
+      { id: 'E', teks: 'CO₃²⁻ + H₂O ⇌ HCO₃⁻ + H⁺' },
     ],
     jawabanBenar: 'A',
     pembahasan:
@@ -88,6 +93,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'NH₄⁺ + H₂O ⇌ NH₃ + H₃O⁺' },
       { id: 'C', teks: 'NH₄⁺ + H₂O ⇌ NH₂⁻ + H₂' },
       { id: 'D', teks: 'NH₄⁺ + H₂O ⇌ NH₄OH + OH⁻' },
+      { id: 'E', teks: 'NH₄⁺ + H₂O ⇌ NH₄OH + H⁺' },
     ],
     jawabanBenar: 'B',
     pembahasan:
@@ -103,6 +109,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: '10⁻⁷' },
       { id: 'C', teks: '10⁻⁹' },
       { id: 'D', teks: '10⁻¹⁴' },
+      { id: 'E', teks: '10⁻¹¹' },
     ],
     jawabanBenar: 'C',
     pembahasan:
@@ -118,6 +125,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: '7' },
       { id: 'C', teks: '9' },
       { id: 'D', teks: '12' },
+      { id: 'E', teks: '11' },
     ],
     jawabanBenar: 'C', // Terverifikasi secara ilmiah: Kh = Kw/Ka = 10⁻⁹, [OH⁻] = √(Kh × C) = 10⁻⁵ M => pOH = 5 => pH = 14 - 5 = 9 (Opsi C)
     pembahasan:
@@ -133,6 +141,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'NH₄⁺ menghasilkan H₃O⁺, sedangkan CH₃COO⁻ menghasilkan OH⁻ melalui hidrolisis.' },
       { id: 'C', teks: 'Kedua garam menghasilkan ion H₃O⁺ dalam jumlah sama.' },
       { id: 'D', teks: 'Semua ion penyusun kedua garam mengalami hidrolisis.' },
+      { id: 'E', teks: 'NH₄⁺ dan CH₃COO⁻ sama-sama menghasilkan OH⁻ melalui hidrolisis.' },
     ],
     jawabanBenar: 'B',
     pembahasan:
@@ -148,6 +157,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'Basa' },
       { id: 'C', teks: 'Netral' },
       { id: 'D', teks: 'Tidak dapat ditentukan' },
+      { id: 'E', teks: 'Amfoter' },
     ],
     jawabanBenar: 'A',
     pembahasan:

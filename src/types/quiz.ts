@@ -4,7 +4,7 @@
  */
 
 export interface QuizOption {
-  id: string; // "A" | "B" | "C" | "D"
+  id: string; // "A" | "B" | "C" | "D" | "E"
   teks: string;
 }
 
@@ -22,7 +22,7 @@ export interface QuizQuestion {
  */
 export interface SubmittedAnswer {
   questionId: string;
-  selectedOption: string; // "A" | "B" | "C" | "D"
+  selectedOption: string; // "A" | "B" | "C" | "D" | "E"
   isCorrect: boolean;
   answeredAt: string; // ISO 8601 string
 }

@@ -580,7 +580,7 @@ export default function TeacherDashboard() {
                           </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
-                              {['A', 'B', 'C', 'D'].map((opt) => {
+                              {['A', 'B', 'C', 'D', 'E'].map((opt) => {
                                 const isKey = opt === item.jawabanBenar;
                                 const isDistractorHigh =
                                   !isKey && item.mostPickedDistractor === opt && item.frequencies[opt].count > 0;

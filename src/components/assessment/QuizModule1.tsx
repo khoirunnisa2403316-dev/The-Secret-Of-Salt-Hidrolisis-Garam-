@@ -287,13 +287,13 @@ export default function QuizModule1() {
           e.preventDefault();
           handleSelectQuestion(currentIndex + 1);
         }
-      } else if (['1', '2', '3', '4'].includes(e.key)) {
+      } else if (['1', '2', '3', '4', '5'].includes(e.key)) {
         if (!isFrozen) {
           e.preventDefault();
-          const optionMap: Record<string, string> = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
+          const optionMap: Record<string, string> = { '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E' };
           handlePickOption(optionMap[e.key]);
         }
-      } else if (['a', 'b', 'c', 'd'].includes(e.key.toLowerCase())) {
+      } else if (['a', 'b', 'c', 'd', 'e'].includes(e.key.toLowerCase())) {
         if (!isFrozen) {
           e.preventDefault();
           handlePickOption(e.key.toUpperCase());
