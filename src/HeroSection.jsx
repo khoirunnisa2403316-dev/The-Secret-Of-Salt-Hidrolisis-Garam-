@@ -64,9 +64,9 @@ export default function HeroSection({ onStartClick }) {
       liquidBg: 'rgba(169, 149, 245, 0.22)',
       ph25: '9,23',
       ph60: '8,75',
-      reaction: 'NH₄⁺(aq) + CN⁻(aq) + H₂O(l) ⇌ NH₃(aq) + HCN(aq)',
+      reaction: 'NH₄⁺ (aq) + CN⁻ (aq) ⇌ NH₃ (aq) + HCN (aq)',
       explanation:
-        'Kedua ion mengalami hidrolisis (hidrolisis total). Sifat larutan ditentukan oleh perbandingan Ka dan Kb. Karena Kb(NH₃) = 1,8×10⁻⁵ > Ka(HCN) = 6,2×10⁻¹⁰, larutan bersifat basa!',
+        'Reaksi hidrolisis merupakan kesetimbangan transfer proton antara kation NH₄⁺ dan anion CN⁻ (tidak berlangsung 100% dan kedua ion tidak berubah seluruhnya menjadi produk). Sifat larutan ditentukan oleh perbandingan Ka dan Kb. Karena Kb(NH₃) = 1,8×10⁻⁵ > Ka(HCN) = 6,2×10⁻¹⁰, larutan bersifat basa!',
       ions: ['NH₄⁺', 'CN⁻', 'OH⁻', 'NH₃', 'HCN', 'H₂O'],
       testStripColor: '#A995F5',
     },
