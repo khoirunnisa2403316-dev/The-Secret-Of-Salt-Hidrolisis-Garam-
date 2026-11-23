@@ -28,16 +28,23 @@ export function buildSyncPayloadFromSession(
   session: GuestQuizSession,
   userId: string | null = null
 ): SyncQuizAttemptPayload {
-  const itemResponses = Object.entries(session.submittedAnswers).map(
+  const safeSubmitted =
+    session?.submittedAnswers &&
+    typeof session.submittedAnswers === 'object' &&
+    !Array.isArray(session.submittedAnswers)
+      ? session.submittedAnswers
+      : {};
+
+  const itemResponses = Object.entries(safeSubmitted).map(
     ([qId, ans]) => {
       const qMeta = soalHidrolisisGaram.find((q) => q.id === qId);
       return {
         questionId: qId,
         conceptTag: qMeta?.konsep || 'konsep-hidrolisis-garam',
-        selectedOption: ans.selectedOption,
+        selectedOption: ans?.selectedOption || '',
         correctOption: qMeta?.jawabanBenar || 'B',
-        isCorrect: ans.isCorrect,
-        answeredAt: ans.answeredAt,
+        isCorrect: Boolean(ans?.isCorrect),
+        answeredAt: ans?.answeredAt || new Date().toISOString(),
       };
     }
   );

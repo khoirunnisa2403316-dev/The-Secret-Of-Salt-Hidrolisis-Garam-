@@ -21,18 +21,40 @@ import {
   resetDraftForQuestion,
   retakeQuizWithNewAttempt,
   isLocalStorageAvailable,
+  sanitizeGuestSession,
 } from '../../services/storageAdapter';
 import './QuizModule1.css';
 
 export default function QuizModule1() {
   const { user } = useAuth();
-  const [session, setSession] = useState<GuestQuizSession>(() => {
+
+  const [initialLoadResult] = useState(() => {
+    const available = isLocalStorageAvailable();
+    if (!available) {
+      return {
+        session: createNewGuestSession(),
+        isAvailable: false,
+        error: 'Penyimpanan lokal perangkat Anda tidak aktif atau ditolak oleh peramban.',
+      };
+    }
     const loaded = loadGuestSession();
     if (loaded.success && loaded.data) {
-      return loaded.data;
+      return {
+        session: loaded.data,
+        isAvailable: true,
+        error: undefined,
+      };
     }
-    return createNewGuestSession();
+    return {
+      session: createNewGuestSession(),
+      isAvailable: true,
+      error:
+        loaded.error ||
+        'Data sesi tersimpan tidak sesuai format dan gagal dipulihkan. Sesi kuis baru telah dimulai.',
+    };
   });
+
+  const [session, setSession] = useState<GuestQuizSession>(initialLoadResult.session);
 
   const [history, setHistory] = useState<QuizAttemptHistoryItem[]>(() => {
     const loaded = loadQuizHistory();
@@ -42,14 +64,9 @@ export default function QuizModule1() {
   const [storageStatus, setStorageStatus] = useState<{
     isAvailable: boolean;
     error?: string;
-  }>(() => {
-    const available = isLocalStorageAvailable();
-    return {
-      isAvailable: available,
-      error: available
-        ? undefined
-        : 'Penyimpanan lokal perangkat Anda tidak aktif atau ditolak oleh peramban.',
-    };
+  }>({
+    isAvailable: initialLoadResult.isAvailable,
+    error: initialLoadResult.error,
   });
 
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -58,8 +75,9 @@ export default function QuizModule1() {
 
   // Sync session changes to localStorage safely
   const persistSession = useCallback((updatedSession: GuestQuizSession) => {
-    setSession(updatedSession);
-    const saveRes = saveGuestSession(updatedSession);
+    const cleanSession = sanitizeGuestSession(updatedSession);
+    setSession(cleanSession);
+    const saveRes = saveGuestSession(cleanSession);
     if (!saveRes.success) {
       setStorageStatus({
         isAvailable: false,
@@ -85,17 +103,35 @@ export default function QuizModule1() {
   }, []);
 
   const totalQuestions = soalHidrolisisGaram.length;
-  const currentIndex = session.currentQuestionIndex;
+
+  const safeDraftAnswers =
+    session.draftAnswers && typeof session.draftAnswers === 'object' && !Array.isArray(session.draftAnswers)
+      ? session.draftAnswers
+      : {};
+  const safeSubmittedAnswers =
+    session.submittedAnswers && typeof session.submittedAnswers === 'object' && !Array.isArray(session.submittedAnswers)
+      ? session.submittedAnswers
+      : {};
+
+  const safeIndex =
+    typeof session.currentQuestionIndex === 'number' &&
+    Number.isInteger(session.currentQuestionIndex) &&
+    session.currentQuestionIndex >= 0 &&
+    session.currentQuestionIndex < totalQuestions
+      ? session.currentQuestionIndex
+      : 0;
+
+  const currentIndex = safeIndex;
   const currentQuestion = soalHidrolisisGaram[currentIndex] || soalHidrolisisGaram[0];
 
   const submittedAnswer: SubmittedAnswer | undefined =
-    session.submittedAnswers[currentQuestion.id];
+    safeSubmittedAnswers[currentQuestion.id];
   const isFrozen = Boolean(submittedAnswer);
-  const currentDraft = session.draftAnswers[currentQuestion.id] || '';
+  const currentDraft = safeDraftAnswers[currentQuestion.id] || '';
   const effectiveOption = isFrozen ? submittedAnswer?.selectedOption : currentDraft;
 
-  const answeredCount = Object.keys(session.submittedAnswers).length;
-  const correctCount = Object.values(session.submittedAnswers).filter((a) => a.isCorrect).length;
+  const answeredCount = Object.keys(safeSubmittedAnswers).length;
+  const correctCount = Object.values(safeSubmittedAnswers).filter((a) => a?.isCorrect).length;
   const isAllAnswered = answeredCount === totalQuestions;
 
   // Jump to specific question index
@@ -115,10 +151,14 @@ export default function QuizModule1() {
   const handlePickOption = useCallback(
     (optionId: string) => {
       if (isFrozen) return; // Frozen diagnostic answer cannot be changed
+      const currentDrafts =
+        session.draftAnswers && typeof session.draftAnswers === 'object' && !Array.isArray(session.draftAnswers)
+          ? session.draftAnswers
+          : {};
       persistSession({
         ...session,
         draftAnswers: {
-          ...session.draftAnswers,
+          ...currentDrafts,
           [currentQuestion.id]: optionId,
         },
       });
@@ -140,12 +180,22 @@ export default function QuizModule1() {
       answeredAt: new Date().toISOString(),
     };
 
+    const currentSubmitted =
+      session.submittedAnswers && typeof session.submittedAnswers === 'object' && !Array.isArray(session.submittedAnswers)
+        ? session.submittedAnswers
+        : {};
+
     const updatedSubmitted = {
-      ...session.submittedAnswers,
+      ...currentSubmitted,
       [currentQuestion.id]: newSubmittedAnswer,
     };
 
-    const updatedDrafts = { ...session.draftAnswers };
+    const currentDrafts =
+      session.draftAnswers && typeof session.draftAnswers === 'object' && !Array.isArray(session.draftAnswers)
+        ? session.draftAnswers
+        : {};
+
+    const updatedDrafts = { ...currentDrafts };
     delete updatedDrafts[currentQuestion.id];
 
     const newlyAnsweredCount = Object.keys(updatedSubmitted).length;
@@ -356,16 +406,20 @@ export default function QuizModule1() {
             </span>
             <span
               className={`meta-chip ${
-                storageStatus.isAvailable ? 'chip-storage-ok' : 'chip-storage-warn'
+                storageStatus.isAvailable && !storageStatus.error
+                  ? 'chip-storage-ok'
+                  : 'chip-storage-warn'
               }`}
             >
-              {storageStatus.isAvailable ? '💾 Penyimpanan Lokal Aktif' : '⚠️ Storage Bermasalah'}
+              {storageStatus.isAvailable && !storageStatus.error
+                ? '💾 Penyimpanan Lokal Aktif'
+                : '⚠️ Storage Bermasalah'}
             </span>
           </div>
         </header>
 
-        {/* Storage Error Banner (Shown only when storage rejected / quota exceeded) */}
-        {!storageStatus.isAvailable && (
+        {/* Storage / Session Alert Banner */}
+        {(!storageStatus.isAvailable || storageStatus.error) && (
           <div className="storage-alert-banner" role="alert">
             <span style={{ fontSize: '1.4rem' }}>⚠️</span>
             <div>
@@ -488,9 +542,9 @@ export default function QuizModule1() {
           {/* Palette Grid Buttons 1-10 */}
           <div className="palette-grid" role="group" aria-label="Daftar Nomor Soal Kuis">
             {soalHidrolisisGaram.map((q, idx) => {
-              const ans = session.submittedAnswers[q.id];
+              const ans = safeSubmittedAnswers[q.id];
               const isCurrent = idx === currentIndex;
-              const hasDraft = !ans && Boolean(session.draftAnswers[q.id]);
+              const hasDraft = !ans && Boolean(safeDraftAnswers[q.id]);
 
               let statusClass = '';
               if (ans) {
