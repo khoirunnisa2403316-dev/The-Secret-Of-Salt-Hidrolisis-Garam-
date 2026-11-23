@@ -10,7 +10,11 @@ import {
   orderBy,
   serverTimestamp,
 } from './firebase';
-import { soalHidrolisisGaram, SOAL_VERSION } from '../data/soalHidrolisisGaram';
+import {
+  soalHidrolisisGaram,
+  SOAL_VERSION,
+  getQuestionsForAttempt,
+} from '../data/soalHidrolisisGaram';
 
 const STORAGE_KEYS = {
   GUEST_HISTORY: 'secret_of_salt_guest_m1_history',
@@ -443,8 +447,18 @@ export function calculateItemAnalysis(submissions, attemptRule = 'latest') {
   const evaluatedCount = filtered.length;
   const uniqueStudents = new Set(filtered.map((s) => s.userId || s.userFullName)).size;
 
-  // 2. Compute item statistics for each question 1-10
-  const items = soalHidrolisisGaram.map((q, idx) => {
+  // 2. Compute item statistics for each question using version/snapshot-aware question bank
+  let referenceQuestions = soalHidrolisisGaram;
+  const sampleWithSnapshot = filtered.find(
+    (sub) => Array.isArray(sub.questionSnapshot) && sub.questionSnapshot.length > 0
+  );
+  if (sampleWithSnapshot) {
+    referenceQuestions = sampleWithSnapshot.questionSnapshot;
+  } else if (filtered.length > 0 && filtered[0].questionVersion) {
+    referenceQuestions = getQuestionsForAttempt(filtered[0]);
+  }
+
+  const items = referenceQuestions.map((q, idx) => {
     const counts = { A: 0, B: 0, C: 0, D: 0, E: 0 };
     let correctCount = 0;
     let wrongCount = 0;

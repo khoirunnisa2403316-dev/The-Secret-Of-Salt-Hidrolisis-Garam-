@@ -164,3 +164,48 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       'Ion Al³⁺ mengalami hidrolisis menghasilkan H₃O⁺ sehingga meningkatkan konsentrasi ion hidronium dan menyebabkan larutan bersifat asam.',
   },
 ];
+
+/**
+ * Registry of question banks by version.
+ * Allows historic attempts to be interpreted using their exact question bank version.
+ */
+export const QUESTION_BANKS_BY_VERSION: Record<string, QuizQuestion[]> = {
+  '1.0.0': soalHidrolisisGaram,
+};
+
+/**
+ * Get question bank for a specific version.
+ * If the exact version is found in the registry, returns that version's questions.
+ * Otherwise falls back to current bank if compatible.
+ */
+export function getQuestionsByVersion(version?: string): QuizQuestion[] {
+  if (!version || typeof version !== 'string') return soalHidrolisisGaram;
+  const clean = version.replace(/^v/i, '').trim();
+  return QUESTION_BANKS_BY_VERSION[clean] || soalHidrolisisGaram;
+}
+
+/**
+ * Resolves the appropriate questions for a given attempt:
+ * 1. Uses attempt.questionSnapshot if present (frozen snapshot at time of completion).
+ * 2. Uses the bank corresponding to attempt.questionVersion from the version registry.
+ * 3. Falls back to default bank if version is compatible or current.
+ */
+export function getQuestionsForAttempt(attempt?: {
+  questionVersion?: string;
+  questionSnapshot?: QuizQuestion[];
+}): QuizQuestion[] {
+  if (!attempt) return soalHidrolisisGaram;
+
+  if (Array.isArray(attempt.questionSnapshot) && attempt.questionSnapshot.length > 0) {
+    return attempt.questionSnapshot;
+  }
+
+  if (attempt.questionVersion) {
+    const cleanVer = String(attempt.questionVersion).replace(/^v/i, '').trim();
+    if (QUESTION_BANKS_BY_VERSION[cleanVer]) {
+      return QUESTION_BANKS_BY_VERSION[cleanVer];
+    }
+  }
+
+  return soalHidrolisisGaram;
+}

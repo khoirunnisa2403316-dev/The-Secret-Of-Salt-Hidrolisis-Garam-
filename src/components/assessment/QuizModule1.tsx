@@ -220,6 +220,7 @@ export default function QuizModule1() {
         startedAt: session.startedAt,
         completedAt,
         answers: updatedSubmitted,
+        questionSnapshot: soalHidrolisisGaram,
       };
 
       const existingIdx = history.findIndex((h) => h.attemptId === session.attemptId);
@@ -239,6 +240,7 @@ export default function QuizModule1() {
           schoolName: user.schoolName || 'SMA Negeri 1 Pembelajaran',
           activityName: 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
           attemptType: updatedHistoryList.length > 1 ? `Percobaan Ke-${updatedHistoryList.length} (Remedial)` : 'Percobaan Ke-1 (Utama)',
+          questionSnapshot: soalHidrolisisGaram,
         };
 
         // 1. Save to user's personal storage

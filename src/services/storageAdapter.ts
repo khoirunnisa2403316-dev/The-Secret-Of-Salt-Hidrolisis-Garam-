@@ -3,8 +3,13 @@ import type {
   QuizAttemptHistoryItem,
   SubmittedAnswer,
   StorageOperationResult,
+  QuizQuestion,
 } from '../types/quiz';
-import { SOAL_VERSION, soalHidrolisisGaram } from '../data/soalHidrolisisGaram';
+import {
+  SOAL_VERSION,
+  soalHidrolisisGaram,
+  QUESTION_BANKS_BY_VERSION,
+} from '../data/soalHidrolisisGaram';
 
 const STORAGE_KEYS = {
   GUEST_SESSION: 'secret_of_salt_guest_m1_session',
@@ -13,6 +18,71 @@ const STORAGE_KEYS = {
 };
 
 const TOTAL_QUESTIONS = soalHidrolisisGaram.length || 10;
+
+/**
+ * List of known supported question bank versions.
+ */
+export const KNOWN_QUESTION_VERSIONS = Object.keys(QUESTION_BANKS_BY_VERSION);
+
+/**
+ * Check whether a version string is recognized and compatible with the current SOAL_VERSION.
+ */
+export function isVersionCompatible(version?: string): boolean {
+  if (!version || typeof version !== 'string') return false;
+  const clean = version.replace(/^v/i, '').trim();
+  if (clean === SOAL_VERSION) return true;
+  return KNOWN_QUESTION_VERSIONS.includes(clean);
+}
+
+/**
+ * Validates whether draft/session data can be safely migrated to the current question bank.
+ * Migration is ONLY permitted if:
+ * 1. The version is recognized as compatible OR is an unversioned legacy draft.
+ * 2. All question IDs in draftAnswers and submittedAnswers correspond to questions in the current bank.
+ */
+export function canSafelyMigrateSession(
+  rawVersion: string | undefined,
+  draftAnswers: Record<string, unknown> | null | undefined,
+  submittedAnswers: Record<string, unknown> | null | undefined
+): { canMigrate: boolean; reason?: string } {
+  const cleanVer = typeof rawVersion === 'string' ? rawVersion.replace(/^v/i, '').trim() : '';
+
+  // If a version is explicitly specified but not recognized or incompatible
+  if (cleanVer && !isVersionCompatible(cleanVer)) {
+    return {
+      canMigrate: false,
+      reason: `Versi draf kuis (${rawVersion}) tidak dikenal atau tidak kompatibel dengan bank soal saat ini (v${SOAL_VERSION}). Draf tidak dapat dimigrasikan secara aman dan sesi baru telah dimulai.`,
+    };
+  }
+
+  const validQuestionIds = new Set(soalHidrolisisGaram.map((q) => q.id));
+
+  // Check draft answers question keys
+  if (draftAnswers && typeof draftAnswers === 'object' && !Array.isArray(draftAnswers)) {
+    for (const qId of Object.keys(draftAnswers)) {
+      if (qId && !validQuestionIds.has(qId)) {
+        return {
+          canMigrate: false,
+          reason: `Draf berisi butir soal (${qId}) yang tidak cocok dengan bank soal saat ini (v${SOAL_VERSION}). Draf tidak dapat dimigrasikan secara aman.`,
+        };
+      }
+    }
+  }
+
+  // Check submitted answers question keys
+  if (submittedAnswers && typeof submittedAnswers === 'object' && !Array.isArray(submittedAnswers)) {
+    for (const qId of Object.keys(submittedAnswers)) {
+      if (qId && !validQuestionIds.has(qId)) {
+        return {
+          canMigrate: false,
+          reason: `Jawaban tersimpan berisi butir soal (${qId}) yang tidak cocok dengan bank soal saat ini (v${SOAL_VERSION}).`,
+        };
+      }
+    }
+  }
+
+  return { canMigrate: true };
+}
 
 /**
  * Generate a random alphanumeric unique ID
@@ -50,6 +120,8 @@ export function sanitizeAndRecoverSession(raw: unknown): {
   session: GuestQuizSession | null;
   recovered: boolean;
   unrecoverable: boolean;
+  reason?: string;
+  versionIncompatible?: boolean;
 } {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return { session: null, recovered: false, unrecoverable: true };
@@ -67,9 +139,39 @@ export function sanitizeAndRecoverSession(raw: unknown): {
     return { session: null, recovered: false, unrecoverable: true };
   }
 
-  let recovered = false;
+  // 1. Validate version and check safe migration before applying current question bank
+  const rawVersion =
+    typeof obj.questionVersion === 'string' && obj.questionVersion.trim()
+      ? obj.questionVersion.trim()
+      : undefined;
 
-  // 1. Validate guestSessionId and attemptId
+  const migrationCheck = canSafelyMigrateSession(
+    rawVersion,
+    obj.draftAnswers as Record<string, unknown> | undefined,
+    obj.submittedAnswers as Record<string, unknown> | undefined
+  );
+
+  if (!migrationCheck.canMigrate) {
+    return {
+      session: null,
+      recovered: false,
+      unrecoverable: true,
+      reason: migrationCheck.reason,
+      versionIncompatible: true,
+    };
+  }
+
+  let recovered = false;
+  let questionVersion = SOAL_VERSION;
+
+  if (rawVersion && isVersionCompatible(rawVersion)) {
+    questionVersion = rawVersion.replace(/^v/i, '').trim();
+  } else {
+    // Unversioned legacy session safely migrated
+    recovered = true;
+  }
+
+  // 2. Validate guestSessionId and attemptId
   let guestSessionId =
     typeof obj.guestSessionId === 'string' && obj.guestSessionId.trim()
       ? obj.guestSessionId.trim()
@@ -85,16 +187,6 @@ export function sanitizeAndRecoverSession(raw: unknown): {
       : '';
   if (!attemptId) {
     attemptId = generateUid('att_m1');
-    recovered = true;
-  }
-
-  // 2. Validate questionVersion
-  let questionVersion =
-    typeof obj.questionVersion === 'string' && obj.questionVersion.trim()
-      ? obj.questionVersion.trim()
-      : '';
-  if (!questionVersion) {
-    questionVersion = SOAL_VERSION;
     recovered = true;
   }
 
@@ -349,13 +441,15 @@ export function loadGuestSession(): StorageOperationResult<GuestQuizSession> {
       };
     }
 
-    const { session, recovered, unrecoverable } = sanitizeAndRecoverSession(parsed);
+    const { session, recovered, unrecoverable, reason } = sanitizeAndRecoverSession(parsed);
 
     if (unrecoverable || !session) {
       return {
         success: false,
         data: null,
-        error: 'Data sesi tersimpan rusak dan gagal dipulihkan. Sesi kuis baru telah dimulai.',
+        error:
+          reason ||
+          'Data sesi tersimpan rusak dan gagal dipulihkan. Sesi kuis baru telah dimulai.',
         isStorageAvailable: true,
       };
     }
@@ -493,6 +587,9 @@ export function loadQuizHistory(): StorageOperationResult<QuizAttemptHistoryItem
           completedAt:
             typeof item.completedAt === 'string' ? item.completedAt : new Date().toISOString(),
           answers: safeAnswers,
+          questionSnapshot: Array.isArray(item.questionSnapshot)
+            ? (item.questionSnapshot as QuizQuestion[])
+            : undefined,
         };
       });
 
@@ -634,6 +731,7 @@ export function retakeQuizWithNewAttempt(
         startedAt: safeSession.startedAt,
         completedAt: safeSession.completedAt || new Date().toISOString(),
         answers: safeSession.submittedAnswers,
+        questionSnapshot: soalHidrolisisGaram,
       });
     }
   }

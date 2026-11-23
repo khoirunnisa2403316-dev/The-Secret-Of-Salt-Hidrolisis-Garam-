@@ -56,6 +56,7 @@ export interface QuizAttemptHistoryItem {
   startedAt: string;
   completedAt: string;
   answers: Record<string, SubmittedAnswer>;
+  questionSnapshot?: QuizQuestion[];
 }
 
 /**
