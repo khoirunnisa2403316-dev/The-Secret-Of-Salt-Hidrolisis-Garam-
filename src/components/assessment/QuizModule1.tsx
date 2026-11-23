@@ -12,8 +12,8 @@ import type {
   SubmittedAnswer,
 } from '../../types/quiz';
 import {
-  loadGuestSession,
-  saveGuestSession,
+  loadQuizSession,
+  saveQuizSession,
   loadQuizHistory,
   saveQuizHistory,
   clearDeviceHistory,
@@ -25,34 +25,43 @@ import {
 } from '../../services/storageAdapter';
 import './QuizModule1.css';
 
+/**
+ * Safely load initial session based on active user identity (AD18-06)
+ */
+function getInitialSessionLoad(userId?: string) {
+  const available = isLocalStorageAvailable();
+  if (!available) {
+    return {
+      session: createNewGuestSession(undefined, userId),
+      isAvailable: false,
+      error: 'Penyimpanan lokal perangkat Anda tidak aktif atau ditolak oleh peramban.',
+    };
+  }
+  const loaded = loadQuizSession(userId);
+  if (loaded.success && loaded.data) {
+    return {
+      session: loaded.data,
+      isAvailable: true,
+      error: undefined,
+    };
+  }
+  return {
+    session: createNewGuestSession(undefined, userId),
+    isAvailable: true,
+    error: loaded.error,
+  };
+}
+
 export default function QuizModule1() {
   const { user } = useAuth();
+  const currentUserId = user?.id || user?.uid || undefined;
 
-  const [initialLoadResult] = useState(() => {
-    const available = isLocalStorageAvailable();
-    if (!available) {
-      return {
-        session: createNewGuestSession(),
-        isAvailable: false,
-        error: 'Penyimpanan lokal perangkat Anda tidak aktif atau ditolak oleh peramban.',
-      };
-    }
-    const loaded = loadGuestSession();
-    if (loaded.success && loaded.data) {
-      return {
-        session: loaded.data,
-        isAvailable: true,
-        error: undefined,
-      };
-    }
-    return {
-      session: createNewGuestSession(),
-      isAvailable: true,
-      error:
-        loaded.error ||
-        'Data sesi tersimpan tidak sesuai format dan gagal dipulihkan. Sesi kuis baru telah dimulai.',
-    };
-  });
+  // Track previous user to detect login, logout, and account-switching (AD18-06)
+  const [prevUserId, setPrevUserId] = useState<string | undefined>(currentUserId);
+
+  const [initialLoadResult, setInitialLoadResult] = useState(() =>
+    getInitialSessionLoad(currentUserId)
+  );
 
   const [session, setSession] = useState<GuestQuizSession>(initialLoadResult.session);
 
@@ -120,26 +129,57 @@ export default function QuizModule1() {
   const [hasExported, setHasExported] = useState(false);
   const [isUnarchivedRetakeConfirmOpen, setIsUnarchivedRetakeConfirmOpen] = useState(false);
 
+  // Synchronously adjust state during render when account changes (standard React pattern - AD18-06)
+  if (prevUserId !== currentUserId) {
+    setPrevUserId(currentUserId);
+    const freshLoaded = getInitialSessionLoad(currentUserId);
+    setInitialLoadResult(freshLoaded);
+    setSession(freshLoaded.session);
+    setStorageStatus({
+      isAvailable: freshLoaded.isAvailable,
+      error: freshLoaded.error,
+    });
+    setHasExported(false);
+    setIsUnarchivedRetakeConfirmOpen(false);
+
+    // Recheck unarchived status for the newly loaded user session
+    const s = freshLoaded.session;
+    const h = loadQuizHistory().data || [];
+    if (s && s.status === 'completed' && s.score !== null && s.attemptId) {
+      const exists = h.some((item) => item.attemptId === s.attemptId);
+      setArchiveError(
+        exists
+          ? null
+          : 'Gagal menyimpan riwayat karena penyimpanan penuh. Hasil ini belum tersimpan di riwayat.'
+      );
+    } else {
+      setArchiveError(null);
+    }
+  }
+
   const [rulesOpen, setRulesOpen] = useState(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Sync session changes to localStorage safely
-  const persistSession = useCallback((updatedSession: GuestQuizSession) => {
-    const cleanSession = sanitizeGuestSession(updatedSession);
-    setSession(cleanSession);
-    const saveRes = saveGuestSession(cleanSession);
-    if (!saveRes.success) {
-      setStorageStatus({
-        isAvailable: false,
-        error: saveRes.error || 'Gagal menyimpan draf kuis ke memori perangkat.',
-      });
-    } else {
-      setStorageStatus({
-        isAvailable: true,
-      });
-    }
-  }, []);
+  // Sync session changes to localStorage safely in the user's isolated namespace (AD18-06)
+  const persistSession = useCallback(
+    (updatedSession: GuestQuizSession) => {
+      const cleanSession = sanitizeGuestSession(updatedSession, currentUserId);
+      setSession(cleanSession);
+      const saveRes = saveQuizSession(cleanSession, currentUserId);
+      if (!saveRes.success) {
+        setStorageStatus({
+          isAvailable: false,
+          error: saveRes.error || 'Gagal menyimpan draf kuis ke memori perangkat.',
+        });
+      } else {
+        setStorageStatus({
+          isAvailable: true,
+        });
+      }
+    },
+    [currentUserId]
+  );
 
   // Sync history changes to localStorage safely - completely decoupled from storageStatus
   const persistHistory = useCallback((updatedHistory: QuizAttemptHistoryItem[]) => {
@@ -432,18 +472,22 @@ export default function QuizModule1() {
     }
   }, [session, totalQuestions]);
 
-  // Execute retake and start fresh attempt
+  // Execute retake and start fresh attempt in the active user's namespace (AD18-06)
   const executeRetake = useCallback(() => {
     setIsUnarchivedRetakeConfirmOpen(false);
     setArchiveError(null);
     setHasExported(false);
-    const { newSession, updatedHistory } = retakeQuizWithNewAttempt(session, history);
+    const { newSession, updatedHistory } = retakeQuizWithNewAttempt(
+      session,
+      history,
+      currentUserId
+    );
     const saveRes = saveQuizHistory(updatedHistory);
     if (saveRes.success) {
       setHistory(updatedHistory);
     }
     persistSession(newSession);
-  }, [history, persistSession, session]);
+  }, [currentUserId, history, persistSession, session]);
 
   // Retake quiz with brand new attempt ID, protected against losing unarchived score (AD18-05)
   const handleRetakeQuiz = useCallback(() => {

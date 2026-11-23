@@ -28,9 +28,10 @@ export interface SubmittedAnswer {
 }
 
 /**
- * Active in-progress guest quiz session
+ * Active in-progress guest or authenticated quiz session
  */
 export interface GuestQuizSession {
+  userId?: string; // Authenticated user ID (or undefined for isolated guest session)
   guestSessionId: string;
   attemptId: string;
   questionVersion: string;
