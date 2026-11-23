@@ -608,6 +608,95 @@ export function loadQuizHistory(): StorageOperationResult<QuizAttemptHistoryItem
   }
 }
 
+export const MOCK_QUOTA_HISTORY_KEY = '__test_mock_quota_history__';
+
+/**
+ * Check whether the simulated QuotaExceededError for history is enabled.
+ * Used exclusively for testing bug AD18-05 without filling device storage.
+ */
+export function isMockQuotaHistoryEnabled(): boolean {
+  try {
+    if (typeof window === 'undefined') return false;
+    return (
+      window.sessionStorage.getItem(MOCK_QUOTA_HISTORY_KEY) === 'true' ||
+      window.localStorage.getItem(MOCK_QUOTA_HISTORY_KEY) === 'true'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Set or unset the simulated QuotaExceededError for history.
+ */
+export function setMockQuotaHistorySimulation(enable: boolean): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (enable) {
+      window.sessionStorage.setItem(MOCK_QUOTA_HISTORY_KEY, 'true');
+    } else {
+      window.sessionStorage.removeItem(MOCK_QUOTA_HISTORY_KEY);
+      window.localStorage.removeItem(MOCK_QUOTA_HISTORY_KEY);
+    }
+  } catch {
+    // Ignore storage errors in test toggle
+  }
+}
+
+// Expose browser console helper for QA and manual simulation
+if (typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).__simulateHistoryQuotaError = (enable: boolean) => {
+    setMockQuotaHistorySimulation(enable);
+    if (enable) {
+      console.warn(
+        '🧪 [SIMULASI AD18-05] Simulasi QuotaExceededError pada persistHistory DIAKTIFKAN.\n' +
+        'Penyimpanan history sekarang akan gagal, sedangkan penyimpanan sesi aktif tetap berjalan normal.\n' +
+        'Untuk menonaktifkan, ketik di konsol: window.__simulateHistoryQuotaError(false)'
+      );
+    } else {
+      console.log(
+        '✅ [SIMULASI AD18-05] Simulasi QuotaExceededError DINONAKTIFKAN.\n' +
+        'Penyimpanan history kembali normal.'
+      );
+    }
+  };
+
+  (window as unknown as Record<string, unknown>).__seedCompletedQuizSession = (targetScore = 100) => {
+    try {
+      const now = new Date().toISOString();
+      const submittedAnswers: Record<string, SubmittedAnswer> = {};
+      soalHidrolisisGaram.forEach((q) => {
+        submittedAnswers[q.id] = {
+          questionId: q.id,
+          selectedOption: q.jawabanBenar,
+          isCorrect: true,
+          answeredAt: now,
+        };
+      });
+      const completedSession: GuestQuizSession = {
+        guestSessionId: generateUid('guest'),
+        attemptId: generateUid('att_m1_test'),
+        questionVersion: SOAL_VERSION,
+        draftAnswers: {},
+        submittedAnswers,
+        currentQuestionIndex: 9,
+        status: 'completed',
+        score: targetScore,
+        startedAt: now,
+        completedAt: now,
+      };
+      saveGuestSession(completedSession);
+      console.log(
+        `🧪 [SIMULASI AD18-05] Sesi kuis selesai berhasil di-seed (Skor: ${targetScore}, ID: ${completedSession.attemptId}).\n` +
+        'Silakan refresh halaman (F5) untuk melihat sesi kuis selesai aktif.'
+      );
+      return completedSession;
+    } catch (e) {
+      console.error('Gagal seed sesi kuis:', e);
+    }
+  };
+}
+
 /**
  * Save quiz history array to device storage.
  */
@@ -620,6 +709,16 @@ export function saveQuizHistory(
       data: false,
       error: 'Penyimpanan lokal tidak tersedia.',
       isStorageAvailable: false,
+    };
+  }
+
+  // AD18-05 Test Simulation: Simulate QuotaExceededError on history without filling storage
+  if (isMockQuotaHistoryEnabled()) {
+    return {
+      success: false,
+      data: false,
+      error: 'Gagal menyimpan riwayat karena penyimpanan penuh. Hasil ini belum tersimpan di riwayat.',
+      isStorageAvailable: true,
     };
   }
 
