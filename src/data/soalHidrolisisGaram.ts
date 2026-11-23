@@ -81,7 +81,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
     ],
     jawabanBenar: 'A',
     pembahasan:
-      'Ion CO₃²⁻ merupakan basa konjugasi dari asam lemah H₂CO₃. Ion ini menerima proton dari air sehingga menghasilkan HCO₃⁻ dan OH⁻.',
+      'H₂CO₃ merupakan asam diprotik yang melepaskan proton secara bertahap melalui ion HCO₃⁻ sebelum membentuk CO₃²⁻. Oleh karena itu, pasangan asam-basa konjugasi yang benar adalah HCO₃⁻/CO₃²⁻, di mana ion CO₃²⁻ bertindak sebagai basa konjugasi dari HCO₃⁻ (bukan basa konjugasi langsung dari H₂CO₃). Dalam air, ion CO₃²⁻ menerima proton dari molekul air sesuai persamaan reaksi: CO₃²⁻ + H₂O ⇌ HCO₃⁻ + OH⁻.',
   },
   {
     id: 'm1-q6',
