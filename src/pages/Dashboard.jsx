@@ -6,6 +6,9 @@ import {
   fetchUserQuizHistoryFromFirestore,
   getUnmigratedGuestAttempts,
   migrateSelectedGuestAttempts,
+  dismissGuestAttemptsForUser,
+  getUserLocalHistory,
+  deduplicateAttempts,
   getAccountQueue,
   processAccountSyncQueue,
 } from '../services/firestoreQuizService';
@@ -46,19 +49,13 @@ export default function Dashboard() {
     if (!user?.id) return;
     setLoadingHistory(true);
 
-    let localAttempts = [];
-    try {
-      const raw = localStorage.getItem(`chem_user_history_${user.id}`);
-      if (raw) localAttempts = JSON.parse(raw);
-    } catch {
-      // ignore
-    }
+    let localAttempts = getUserLocalHistory(user.id);
 
     if (isFirebaseConfigured() && user?.id) {
       try {
         const firestoreAttempts = await fetchUserQuizHistoryFromFirestore(user.id);
         if (firestoreAttempts.length > 0) {
-          localAttempts = firestoreAttempts;
+          localAttempts = deduplicateAttempts([...firestoreAttempts, ...localAttempts]);
         }
       } catch (err) {
         console.warn('Firestore history load notice:', err);
@@ -80,19 +77,13 @@ export default function Dashboard() {
     let ignore = false;
     async function init() {
       if (!user?.id) return;
-      let localAttempts = [];
-      try {
-        const raw = localStorage.getItem(`chem_user_history_${user.id}`);
-        if (raw) localAttempts = JSON.parse(raw);
-      } catch {
-        // ignore
-      }
+      let localAttempts = getUserLocalHistory(user.id);
 
       if (isFirebaseConfigured() && user?.id) {
         try {
           const firestoreAttempts = await fetchUserQuizHistoryFromFirestore(user.id);
           if (firestoreAttempts.length > 0) {
-            localAttempts = firestoreAttempts;
+            localAttempts = deduplicateAttempts([...firestoreAttempts, ...localAttempts]);
           }
         } catch (err) {
           console.warn('Firestore history load notice:', err);
@@ -120,6 +111,15 @@ export default function Dashboard() {
     setSelectedGuestIds((prev) =>
       prev.includes(attemptId) ? prev.filter((id) => id !== attemptId) : [...prev, attemptId]
     );
+  };
+
+  const handleDismissGuest = () => {
+    if (!user?.id || unmigratedGuests.length === 0) return;
+    const idsToDismiss = unmigratedGuests.map((g) => g.attemptId);
+    dismissGuestAttemptsForUser(user.id, idsToDismiss);
+    setUnmigratedGuests([]);
+    setSelectedGuestIds([]);
+    setMigrationNotice('Penggabungan riwayat tamu telah dilewati. Riwayat akun Anda tidak diubah.');
   };
 
   const handleMigrateSelected = async () => {
@@ -362,6 +362,15 @@ export default function Dashboard() {
                 className="py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-[#0F766E] hover:bg-[#115E59] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
               >
                 {migrating ? 'Menautkan Data...' : `Tautkan ${selectedGuestIds.length} Hasil Terpilih`}
+              </button>
+              <button
+                type="button"
+                onClick={handleDismissGuest}
+                disabled={migrating}
+                className="py-2.5 px-3.5 rounded-xl font-bold text-xs sm:text-sm text-[#B91C1C] bg-[#FEF2F2] hover:bg-[#FEE2E2] border border-[#FECACA] transition-colors cursor-pointer"
+                title="Jangan tautkan hasil tamu ini ke akun saya"
+              >
+                Abaikan / Jangan Tautkan
               </button>
               <button
                 type="button"
