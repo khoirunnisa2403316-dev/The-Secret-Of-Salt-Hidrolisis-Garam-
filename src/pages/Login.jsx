@@ -28,6 +28,10 @@ export default function Login() {
     location.state?.registeredMessage || ''
   );
 
+  // Akses pengujian multi-peran untuk pengembang (hanya aktif jika parameter ?dev=true atau ?demo=true disertakan pada URL)
+  const isDevMode = new URLSearchParams(location.search).get('dev') === 'true' ||
+                    new URLSearchParams(location.search).get('demo') === 'true';
+
   // Validate form
   const validateForm = () => {
     const newErrors = {};
@@ -286,59 +290,61 @@ export default function Login() {
         </button>
       </form>
 
-      {/* Quick Demo Roles Bar */}
-      <div className="mt-5 p-3 rounded-xl bg-[#F0FDFA] border border-[#CCFBF1] text-xs text-[#134E4A]">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-          <span style={{ fontWeight: '800' }}>🧪 Akses Cepat Evaluasi Multi-Peran:</span>
+      {/* Quick Demo Roles Bar — Hanya untuk kebutuhan pengujian pengembang yang aman via ?dev=true atau ?demo=true */}
+      {isDevMode && (
+        <div className="mt-5 p-3 rounded-xl bg-[#F0FDFA] border border-[#CCFBF1] text-xs text-[#134E4A]">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+            <span style={{ fontWeight: '800' }}>🧪 Akses Cepat Evaluasi Multi-Peran (Mode Pengembang):</span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => handleAutoFillDemo('teacher')}
+              style={{
+                padding: '0.35rem 0.65rem',
+                borderRadius: '0.5rem',
+                backgroundColor: '#164E63',
+                color: '#FFFFFF',
+                fontWeight: '700',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              👩‍🏫 Guru: Khoirun Nisa' Rakhma
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAutoFillDemo('student1')}
+              style={{
+                padding: '0.35rem 0.65rem',
+                borderRadius: '0.5rem',
+                backgroundColor: '#FFFFFF',
+                color: '#0F766E',
+                border: '1px solid #5EEAD4',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}
+            >
+              👦 Siswa 1: Ahmad Fauzi
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAutoFillDemo('student2')}
+              style={{
+                padding: '0.35rem 0.65rem',
+                borderRadius: '0.5rem',
+                backgroundColor: '#FFFFFF',
+                color: '#0F766E',
+                border: '1px solid #5EEAD4',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}
+            >
+              👧 Siswa 2: Nabila Putri
+            </button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => handleAutoFillDemo('teacher')}
-            style={{
-              padding: '0.35rem 0.65rem',
-              borderRadius: '0.5rem',
-              backgroundColor: '#164E63',
-              color: '#FFFFFF',
-              fontWeight: '700',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            👩‍🏫 Guru: Khoirun Nisa' Rakhma
-          </button>
-          <button
-            type="button"
-            onClick={() => handleAutoFillDemo('student1')}
-            style={{
-              padding: '0.35rem 0.65rem',
-              borderRadius: '0.5rem',
-              backgroundColor: '#FFFFFF',
-              color: '#0F766E',
-              border: '1px solid #5EEAD4',
-              fontWeight: '700',
-              cursor: 'pointer',
-            }}
-          >
-            👦 Siswa 1: Ahmad Fauzi
-          </button>
-          <button
-            type="button"
-            onClick={() => handleAutoFillDemo('student2')}
-            style={{
-              padding: '0.35rem 0.65rem',
-              borderRadius: '0.5rem',
-              backgroundColor: '#FFFFFF',
-              color: '#0F766E',
-              border: '1px solid #5EEAD4',
-              fontWeight: '700',
-              cursor: 'pointer',
-            }}
-          >
-            👧 Siswa 2: Nabila Putri
-          </button>
-        </div>
-      </div>
+      )}
     </AuthLayout>
   );
 }
