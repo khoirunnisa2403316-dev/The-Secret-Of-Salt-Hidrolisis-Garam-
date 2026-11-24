@@ -51,7 +51,11 @@ function translateFirebaseError(error) {
     case 'auth/invalid-email':
       return 'Format email tidak valid (contoh: nama@sekolah.sch.id).';
     case 'auth/operation-not-allowed':
-      return 'Metode autentikasi Email/Password belum diaktifkan di Firebase Console.';
+      return 'Metode autentikasi (Email/Password atau Google) belum diaktifkan di Firebase Console (Authentication > Sign-in method).';
+    case 'auth/unauthorized-domain':
+      return 'Domain aplikasi ini belum ditambahkan ke daftar "Authorized domains" di Firebase Console (Authentication > Settings > Authorized domains).';
+    case 'auth/configuration-not-found':
+      return 'Konfigurasi penyedia autentikasi belum ditemukan di Firebase Console.';
     case 'auth/weak-password':
       return 'Kata sandi terlalu lemah. Gunakan minimal 8 karakter dengan kombinasi huruf dan angka.';
     case 'auth/user-not-found':
@@ -515,19 +519,8 @@ export async function loginWithGoogle() {
     }
   }
 
-  // 2. Local Fallback Engine (Demo Google Account)
-  await new Promise((r) => setTimeout(r, 600));
-  const fallbackGoogleStudent = {
-    id: 'usr_demo_student_01',
-    uid: 'usr_demo_student_01',
-    email: 'ahmad.fauzi@gmail.com',
-    fullName: 'Ahmad Fauzi (Google Account)',
-    role: 'student',
-    classGrade: 'XI-MIPA-1',
-    schoolName: 'SMA Negeri 1 Pembelajaran',
-    authProvider: 'google',
-  };
-  return setSession(fallbackGoogleStudent, true);
+  // 2. Fallback when Firebase environment variables are not configured
+  throw new Error('Firebase Authentication belum terkonfigurasi. Pastikan variabel lingkungan Firebase (VITE_FIREBASE_API_KEY, dll.) telah diatur.');
 }
 
 /**
