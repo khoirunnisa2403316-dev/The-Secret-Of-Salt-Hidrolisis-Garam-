@@ -13,6 +13,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'Ion-ion tertentu dari garam bereaksi dengan air sehingga memengaruhi pH.' },
       { id: 'C', teks: 'Semua ion garam menghasilkan ion H⁺.' },
       { id: 'D', teks: 'Hidrolisis hanya terjadi pada garam dari asam kuat dan basa kuat.' },
+      { id: 'E', teks: 'Kation dan anion dari semua garam selalu bereaksi dengan air.' },
     ],
     jawabanBenar: 'B',
     pembahasan:
@@ -28,6 +29,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'KNO₃' },
       { id: 'C', teks: 'CH₃COONa' },
       { id: 'D', teks: 'NH₄Cl' },
+      { id: 'E', teks: 'NaNO₃' },
     ],
     jawabanBenar: 'D',
     pembahasan:
@@ -43,6 +45,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'CH₃COO⁻' },
       { id: 'C', teks: 'Na⁺ dan CH₃COO⁻' },
       { id: 'D', teks: 'Tidak ada ion yang mengalami hidrolisis.' },
+      { id: 'E', teks: 'Ion CH₃COO⁻ tidak bereaksi dengan air karena berasal dari garam.' },
     ],
     jawabanBenar: 'B',
     pembahasan:
@@ -58,6 +61,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'Hidrolisis parsial anion' },
       { id: 'C', teks: 'Hidrolisis parsial kation' },
       { id: 'D', teks: 'Hidrolisis total' },
+      { id: 'E', teks: 'Hidrolisis hanya terjadi pada kation.' },
     ],
     jawabanBenar: 'D',
     pembahasan:
@@ -73,10 +77,11 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'CO₃²⁻ + H₂O ⇌ H⁺ + HCO₃⁻' },
       { id: 'C', teks: 'CO₃²⁻ + H₂O ⇌ CO₂ + H₂' },
       { id: 'D', teks: 'CO₃²⁻ + H₂O ⇌ H₂CO₃ + H₃O⁺' },
+      { id: 'E', teks: 'CO₃²⁻ + H₂O ⇌ HCO₃⁻ + H⁺' },
     ],
     jawabanBenar: 'A',
     pembahasan:
-      'Ion CO₃²⁻ merupakan basa konjugasi dari asam lemah H₂CO₃. Ion ini menerima proton dari air sehingga menghasilkan HCO₃⁻ dan OH⁻.',
+      'H₂CO₃ merupakan asam diprotik yang melepaskan proton secara bertahap melalui ion HCO₃⁻ sebelum membentuk CO₃²⁻. Oleh karena itu, pasangan asam-basa konjugasi yang benar adalah HCO₃⁻/CO₃²⁻, di mana ion CO₃²⁻ bertindak sebagai basa konjugasi dari HCO₃⁻ (bukan basa konjugasi langsung dari H₂CO₃). Dalam air, ion CO₃²⁻ menerima proton dari molekul air sesuai persamaan reaksi: CO₃²⁻ + H₂O ⇌ HCO₃⁻ + OH⁻.',
   },
   {
     id: 'm1-q6',
@@ -88,6 +93,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'NH₄⁺ + H₂O ⇌ NH₃ + H₃O⁺' },
       { id: 'C', teks: 'NH₄⁺ + H₂O ⇌ NH₂⁻ + H₂' },
       { id: 'D', teks: 'NH₄⁺ + H₂O ⇌ NH₄OH + OH⁻' },
+      { id: 'E', teks: 'NH₄⁺ + H₂O ⇌ NH₄OH + H⁺' },
     ],
     jawabanBenar: 'B',
     pembahasan:
@@ -103,6 +109,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: '10⁻⁷' },
       { id: 'C', teks: '10⁻⁹' },
       { id: 'D', teks: '10⁻¹⁴' },
+      { id: 'E', teks: '10⁻¹¹' },
     ],
     jawabanBenar: 'C',
     pembahasan:
@@ -118,6 +125,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: '7' },
       { id: 'C', teks: '9' },
       { id: 'D', teks: '12' },
+      { id: 'E', teks: '11' },
     ],
     jawabanBenar: 'C', // Terverifikasi secara ilmiah: Kh = Kw/Ka = 10⁻⁹, [OH⁻] = √(Kh × C) = 10⁻⁵ M => pOH = 5 => pH = 14 - 5 = 9 (Opsi C)
     pembahasan:
@@ -133,6 +141,7 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'NH₄⁺ menghasilkan H₃O⁺, sedangkan CH₃COO⁻ menghasilkan OH⁻ melalui hidrolisis.' },
       { id: 'C', teks: 'Kedua garam menghasilkan ion H₃O⁺ dalam jumlah sama.' },
       { id: 'D', teks: 'Semua ion penyusun kedua garam mengalami hidrolisis.' },
+      { id: 'E', teks: 'NH₄⁺ dan CH₃COO⁻ sama-sama menghasilkan OH⁻ melalui hidrolisis.' },
     ],
     jawabanBenar: 'B',
     pembahasan:
@@ -148,9 +157,55 @@ export const soalHidrolisisGaram: QuizQuestion[] = [
       { id: 'B', teks: 'Basa' },
       { id: 'C', teks: 'Netral' },
       { id: 'D', teks: 'Tidak dapat ditentukan' },
+      { id: 'E', teks: 'Amfoter' },
     ],
     jawabanBenar: 'A',
     pembahasan:
       'Ion Al³⁺ mengalami hidrolisis menghasilkan H₃O⁺ sehingga meningkatkan konsentrasi ion hidronium dan menyebabkan larutan bersifat asam.',
   },
 ];
+
+/**
+ * Registry of question banks by version.
+ * Allows historic attempts to be interpreted using their exact question bank version.
+ */
+export const QUESTION_BANKS_BY_VERSION: Record<string, QuizQuestion[]> = {
+  '1.0.0': soalHidrolisisGaram,
+};
+
+/**
+ * Get question bank for a specific version.
+ * If the exact version is found in the registry, returns that version's questions.
+ * Otherwise falls back to current bank if compatible.
+ */
+export function getQuestionsByVersion(version?: string): QuizQuestion[] {
+  if (!version || typeof version !== 'string') return soalHidrolisisGaram;
+  const clean = version.replace(/^v/i, '').trim();
+  return QUESTION_BANKS_BY_VERSION[clean] || soalHidrolisisGaram;
+}
+
+/**
+ * Resolves the appropriate questions for a given attempt:
+ * 1. Uses attempt.questionSnapshot if present (frozen snapshot at time of completion).
+ * 2. Uses the bank corresponding to attempt.questionVersion from the version registry.
+ * 3. Falls back to default bank if version is compatible or current.
+ */
+export function getQuestionsForAttempt(attempt?: {
+  questionVersion?: string;
+  questionSnapshot?: QuizQuestion[];
+}): QuizQuestion[] {
+  if (!attempt) return soalHidrolisisGaram;
+
+  if (Array.isArray(attempt.questionSnapshot) && attempt.questionSnapshot.length > 0) {
+    return attempt.questionSnapshot;
+  }
+
+  if (attempt.questionVersion) {
+    const cleanVer = String(attempt.questionVersion).replace(/^v/i, '').trim();
+    if (QUESTION_BANKS_BY_VERSION[cleanVer]) {
+      return QUESTION_BANKS_BY_VERSION[cleanVer];
+    }
+  }
+
+  return soalHidrolisisGaram;
+}

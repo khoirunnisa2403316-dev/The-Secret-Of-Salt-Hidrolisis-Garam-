@@ -19,6 +19,7 @@ import './App.css';
  * Formative Quiz Module 1, and Footer.
  */
 function HomePage() {
+  const { user } = useAuth();
   const handleStartLearning = () => {
     const target = document.getElementById('topik-prasyarat');
     if (target) {
@@ -39,8 +40,8 @@ function HomePage() {
         {/* 3 Pillars of Prerequisite Mastery */}
         <TopicCards />
 
-        {/* Formative Quiz Module 1: 10 Verified Salt Hydrolysis Questions */}
-        <QuizModule1 />
+        {/* Formative Quiz Module 1: Isolated by active user account namespace (AD18-06) */}
+        <QuizModule1 key={user?.id || user?.uid || 'guest'} />
       </main>
 
       {/* Academic Footer */}

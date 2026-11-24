@@ -10,6 +10,7 @@ import {
   switchDemoAccount,
   setSession,
   clearSession,
+  isTeacherEmail,
 } from '../services/authService';
 import {
   auth,
@@ -39,13 +40,14 @@ export function AuthProvider({ children }) {
           }
 
           // Fetch full profile from Firestore if available
+          const userRole = isTeacherEmail(fbUser.email) ? 'teacher' : 'student';
           let profile = {
             uid: fbUser.uid,
             id: fbUser.uid,
             email: fbUser.email,
             fullName: fbUser.displayName || fbUser.email?.split('@')[0],
-            role: 'student',
-            classGrade: 'XI Fase F',
+            role: userRole,
+            classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F',
             schoolName: 'SMA / MA Laboratorium',
           };
 
@@ -53,7 +55,8 @@ export function AuthProvider({ children }) {
             try {
               const snap = await getDoc(doc(db, 'users', fbUser.uid));
               if (snap.exists()) {
-                profile = { ...profile, ...snap.data() };
+                const data = snap.data();
+                profile = { ...profile, ...data, role: data?.role || userRole };
               }
             } catch (err) {
               console.warn('Firestore profile load notice:', err);
@@ -65,7 +68,7 @@ export function AuthProvider({ children }) {
         } else {
           // User signed out in Firebase
           const current = getCurrentSession();
-          if (current?.user?.authProvider === 'firebase') {
+          if (current?.user?.authProvider === 'firebase' || current?.user?.authProvider === 'google') {
             clearSession();
             setSessionState(null);
           }

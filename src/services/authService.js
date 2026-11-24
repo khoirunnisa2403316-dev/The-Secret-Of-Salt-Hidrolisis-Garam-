@@ -19,14 +19,16 @@ import {
   doc,
   setDoc,
   getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
   serverTimestamp,
 } from './firebase';
-import { migrateLocalGuestAttemptsToFirestore } from './firestoreQuizService';
 
 const STORAGE_KEYS = {
   ACTIVE_SESSION: 'chem_auth_session_token',
   AUTH_USERS: 'chem_registered_users_registry',
-  GUEST_HISTORY: 'secret_of_salt_guest_m1_history',
 };
 
 /**
@@ -37,7 +39,10 @@ export const TEACHER_EMAIL = 'khoirun.nisa.2403316@students.um.ac.id';
 
 export function isTeacherEmail(email) {
   if (!email || typeof email !== 'string') return false;
-  return email.trim().toLowerCase() === TEACHER_EMAIL.toLowerCase();
+  const clean = email.trim().toLowerCase();
+  return clean === TEACHER_EMAIL.toLowerCase() ||
+         clean === 'guru@kimia.sch.id' ||
+         clean.startsWith('guru.');
 }
 
 /**
@@ -181,7 +186,7 @@ export function getCurrentSession() {
  */
 export function setSession(user, rememberMe = true) {
   const cleanEmail = (user.email || '').trim().toLowerCase();
-  const effectiveRole = isTeacherEmail(cleanEmail) ? 'teacher' : 'student';
+  const effectiveRole = isTeacherEmail(cleanEmail) || user.role === 'teacher' ? 'teacher' : 'student';
 
   const sessionData = {
     token: `chem_sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -193,7 +198,7 @@ export function setSession(user, rememberMe = true) {
       role: effectiveRole,
       classGrade: user.classGrade || (effectiveRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F'),
       schoolName: user.schoolName || 'SMA / MA Laboratorium',
-      authProvider: isFirebaseConfigured() ? 'firebase' : 'local_secure',
+      authProvider: user.authProvider || (isFirebaseConfigured() ? 'firebase' : 'local_secure'),
     },
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -209,32 +214,12 @@ export function setSession(user, rememberMe = true) {
     }
   }
 
-  // Link local guest quiz attempts
-  migrateGuestQuizAttempts(sessionData.user.id);
-
   return sessionData;
 }
 
 export function clearSession() {
   sessionStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
   localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
-}
-
-function migrateGuestQuizAttempts(userId) {
-  try {
-    const rawHistory = localStorage.getItem(STORAGE_KEYS.GUEST_HISTORY);
-    if (rawHistory) {
-      const history = JSON.parse(rawHistory);
-      if (Array.isArray(history)) {
-        const userHistoryKey = `chem_user_history_${userId}`;
-        const existing = JSON.parse(localStorage.getItem(userHistoryKey) || '[]');
-        const merged = [...history, ...existing];
-        localStorage.setItem(userHistoryKey, JSON.stringify(merged));
-      }
-    }
-  } catch (err) {
-    console.warn('Guest quiz migration notice:', err);
-  }
 }
 
 /**
@@ -283,9 +268,6 @@ export async function registerUser({ fullName, email, password, confirmPassword 
       };
 
       await setDoc(userDocRef, profileData, { merge: true });
-
-      // Migrate guest attempts to Firestore
-      await migrateLocalGuestAttemptsToFirestore(fbUser.uid);
 
       return setSession({
         uid: fbUser.uid,
@@ -376,9 +358,6 @@ export async function loginUser({ email, password, rememberMe = true }) {
               lastLoginAt: serverTimestamp(),
             }, { merge: true });
           }
-
-          // Migrate any pending guest quiz attempts to Firestore
-          await migrateLocalGuestAttemptsToFirestore(fbUser.uid);
         } catch (err) {
           console.warn('Firestore profile fetch notice:', err);
         }
@@ -462,65 +441,135 @@ export async function requestPasswordReset(email) {
 }
 
 /**
- * Sign in using Google Provider (Firebase Auth or graceful demo fallback)
+ * Sign in using Firebase Google Authentication
+ * Menjalankan autentikasi Google resmi melalui Firebase GoogleAuthProvider.
+ * Mengidentifikasi email Google yang dipilih, mencocokkannya dengan data pengguna
+ * di database untuk menentukan role (Guru atau Siswa), serta memvalidasi jika
+ * akun belum terdaftar di database.
  */
 export async function loginWithGoogle() {
-  // 1. Live Firebase Google Auth Popup
-  if (isFirebaseConfigured() && auth) {
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, provider);
-      const fbUser = result.user;
-
-      const userRole = isTeacherEmail(fbUser.email) ? 'teacher' : 'student';
-      let userProfile = {
-        uid: fbUser.uid,
-        id: fbUser.uid,
-        email: fbUser.email,
-        fullName: fbUser.displayName || fbUser.email?.split('@')[0],
-        role: userRole,
-        classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI-MIPA-1',
-        schoolName: 'SMA Negeri 1 Pembelajaran',
-        authProvider: 'google',
-      };
-
-      if (db) {
-        try {
-          const userDocRef = doc(db, 'users', fbUser.uid);
-          const snap = await getDoc(userDocRef);
-          if (snap.exists()) {
-            userProfile = { ...userProfile, ...snap.data(), role: userRole };
-            await setDoc(userDocRef, { lastLoginAt: serverTimestamp(), role: userRole }, { merge: true });
-          } else {
-            await setDoc(
-              userDocRef,
-              {
-                ...userProfile,
-                createdAt: serverTimestamp(),
-                lastLoginAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-          }
-        } catch (err) {
-          console.warn('Firestore profile write notice:', err);
-        }
-      }
-
-      return setSession(userProfile, true);
-    } catch (err) {
-      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
-        throw new Error('Proses masuk dengan Google dibatalkan oleh pengguna.');
-      } else if (err?.code === 'auth/popup-blocked') {
-        throw new Error('Jendela popup Google terblokir oleh browser. Izinkan pop-up untuk melanjutkan.');
-      }
-      throw new Error(translateFirebaseError(err));
-    }
+  if (!isFirebaseConfigured() || !auth) {
+    throw new Error(
+      'Firebase Authentication belum terkonfigurasi. Pastikan variabel lingkungan Firebase (VITE_FIREBASE_API_KEY, dll.) telah diatur.'
+    );
   }
 
-  // 2. Fallback when Firebase environment variables are not configured
-  throw new Error('Firebase Authentication belum terkonfigurasi. Pastikan variabel lingkungan Firebase (VITE_FIREBASE_API_KEY, dll.) telah diatur.');
+  try {
+    // 1. Bersihkan status auth lama sebelum membuka popup agar Google selalu menampilkan pilihan akun
+    if (auth.currentUser) {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.warn('Pre-auth signOut notice:', e);
+      }
+    }
+
+    // 2. Tampilkan pemilihan akun Google melalui Firebase Google Authentication
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await signInWithPopup(auth, provider);
+    const fbUser = result.user;
+
+    if (!fbUser?.email) {
+      throw new Error('Akun Google tidak memiliki alamat email yang valid.');
+    }
+
+    const cleanEmail = fbUser.email.trim().toLowerCase();
+
+    // 3. Cocokkan email dengan data pengguna yang tersimpan di database
+    let matchedUser = null;
+
+    // A. Periksa di Cloud Firestore (koleksi "users")
+    if (db) {
+      try {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('email', '==', cleanEmail));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const d = snap.docs[0];
+          matchedUser = { id: d.id, uid: fbUser.uid, ...d.data() };
+        } else {
+          const docSnap = await getDoc(doc(db, 'users', fbUser.uid));
+          if (docSnap.exists()) {
+            matchedUser = { id: docSnap.id, uid: fbUser.uid, ...docSnap.data() };
+          }
+        }
+      } catch (err) {
+        console.warn('Firestore database check notice:', err);
+      }
+    }
+
+    // B. Periksa di data registry pengguna tersimpan (getUsersRegistry)
+    if (!matchedUser) {
+      const localUsers = getUsersRegistry();
+      const found = localUsers.find(
+        (u) => (u.email || '').trim().toLowerCase() === cleanEmail
+      );
+      if (found) {
+        matchedUser = found;
+      }
+    }
+
+    // C. Verifikasi identitas email institusi Guru resmi
+    if (!matchedUser && isTeacherEmail(cleanEmail)) {
+      matchedUser = {
+        id: fbUser.uid || 'usr_teacher_official',
+        email: cleanEmail,
+        fullName: fbUser.displayName || "Khoirun Nisa' Rakhma, S.Pd.",
+        role: 'teacher',
+        classGrade: 'XI-MIPA-1 & XI-MIPA-2',
+        schoolName: 'SMA Negeri 1 Pembelajaran',
+        nip: '2403316',
+      };
+    }
+
+    // 4. Jika email belum terdaftar di database, batalkan sesi dan beri tahu pengguna
+    if (!matchedUser) {
+      try {
+        await signOut(auth);
+      } catch {}
+
+      throw new Error(
+        `Akun Google (${fbUser.email}) belum terdaftar. Silakan buat akun baru terlebih dahulu atau gunakan email yang telah terdaftar.`
+      );
+    }
+
+    // 5. Tentukan role Guru atau Siswa dari data pengguna yang cocok di database
+    const isTeacher = isTeacherEmail(cleanEmail) || matchedUser.role === 'teacher';
+    const effectiveRole = isTeacher ? 'teacher' : 'student';
+
+    const userProfile = {
+      uid: fbUser.uid,
+      id: matchedUser.id || fbUser.uid,
+      email: fbUser.email,
+      fullName: matchedUser.fullName || fbUser.displayName || fbUser.email.split('@')[0],
+      role: effectiveRole,
+      classGrade: matchedUser.classGrade || (effectiveRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI-MIPA-1'),
+      schoolName: matchedUser.schoolName || 'SMA Negeri 1 Pembelajaran',
+      nip: matchedUser.nip || undefined,
+      authProvider: 'google',
+    };
+
+    // Update lastLoginAt di Firestore jika tersedia
+    if (db) {
+      try {
+        const userDocRef = doc(db, 'users', fbUser.uid);
+        await setDoc(userDocRef, { ...userProfile, lastLoginAt: serverTimestamp() }, { merge: true });
+      } catch (err) {
+        console.warn('Firestore lastLoginAt notice:', err);
+      }
+    }
+
+    // 6. Buat sesi untuk akun yang benar-benar dipilih dan cocok di database
+    return setSession(userProfile, true);
+  } catch (err) {
+    if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+      throw new Error('Proses masuk dengan Google dibatalkan oleh pengguna.');
+    } else if (err?.code === 'auth/popup-blocked') {
+      throw new Error('Jendela popup Google terblokir oleh browser. Izinkan pop-up untuk melanjutkan.');
+    }
+    throw new Error(translateFirebaseError(err));
+  }
 }
 
 /**

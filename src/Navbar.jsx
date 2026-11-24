@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './context/useAuth';
+import { useFocusTrap } from './hooks/useFocusTrap';
 import './Navbar.css';
 
 /**
@@ -15,17 +16,24 @@ export default function Navbar({ onStartClick }) {
   const [warmMode, setWarmMode] = useState(false);
   const [activeHash, setActiveHash] = useState('#beranda');
 
-  // Close modals on Escape key
+  // W3C ARIA focus trap for Help Modal (AD18-08)
+  const helpModalRef = useFocusTrap({
+    isOpen: helpModalOpen,
+    onClose: () => setHelpModalOpen(false),
+    initialFocusSelector: '.modal-close-btn',
+    restoreFocus: true,
+  });
+
+  // Close mobile drawer on Escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setHelpModalOpen(false);
+      if (e.key === 'Escape' && mobileMenuOpen) {
         setMobileMenuOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [mobileMenuOpen]);
 
   // Track active section as user scrolls
   useEffect(() => {
@@ -360,7 +368,12 @@ export default function Navbar({ onStartClick }) {
           aria-modal="true"
           aria-labelledby="help-modal-title"
         >
-          <div className="modal-container help-modal-card" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={helpModalRef}
+            className="modal-container help-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            tabIndex={-1}
+          >
             <div className="modal-header">
               <div className="modal-title-row">
                 <span className="modal-icon">📖</span>

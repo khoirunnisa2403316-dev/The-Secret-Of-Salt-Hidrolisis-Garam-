@@ -10,7 +10,11 @@ import {
   orderBy,
   serverTimestamp,
 } from './firebase';
-import { soalHidrolisisGaram, SOAL_VERSION } from '../data/soalHidrolisisGaram';
+import {
+  soalHidrolisisGaram,
+  SOAL_VERSION,
+  getQuestionsForAttempt,
+} from '../data/soalHidrolisisGaram';
 
 const STORAGE_KEYS = {
   GUEST_HISTORY: 'secret_of_salt_guest_m1_history',
@@ -217,8 +221,85 @@ function markLocalAttemptSynced(userId, attemptId) {
 }
 
 /**
+ * Robust Attempt Deduplication by ID (AD18-07)
+ * Guarantees zero duplicate attemptId items in local storage or remote sync lists.
+ */
+export function deduplicateAttempts(attempts) {
+  if (!Array.isArray(attempts)) return [];
+  const map = new Map();
+  for (const item of attempts) {
+    if (item && item.attemptId) {
+      if (!map.has(item.attemptId)) {
+        map.set(item.attemptId, item);
+      } else {
+        // If already present, merge flags so verified synced status is preserved
+        const prev = map.get(item.attemptId);
+        map.set(item.attemptId, {
+          ...prev,
+          ...item,
+          isSynced: prev.isSynced || item.isSynced,
+        });
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
+/**
+ * Load user's local attempt history safely with automatic deduplication (AD18-07)
+ */
+export function getUserLocalHistory(userId) {
+  if (!userId) return [];
+  try {
+    const raw = localStorage.getItem(`chem_user_history_${userId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const deduplicated = deduplicateAttempts(parsed);
+    // If deduplicated count differs from raw parsed, heal storage immediately
+    if (deduplicated.length !== parsed.length) {
+      localStorage.setItem(`chem_user_history_${userId}`, JSON.stringify(deduplicated));
+    }
+    return deduplicated;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Persist user's local attempt history safely with deduplication
+ */
+export function saveUserLocalHistory(userId, history) {
+  if (!userId || !Array.isArray(history)) return false;
+  try {
+    const deduplicated = deduplicateAttempts(history);
+    localStorage.setItem(`chem_user_history_${userId}`, JSON.stringify(deduplicated));
+    return true;
+  } catch (err) {
+    console.error('Failed to save user local history:', err);
+    return false;
+  }
+}
+
+/**
+ * Explicitly dismiss guest attempts for this account without merging (AD18-07)
+ * Respects user choice to reject linking guest attempts to their registered account.
+ */
+export function dismissGuestAttemptsForUser(userId, attemptIds) {
+  if (!userId || !Array.isArray(attemptIds) || attemptIds.length === 0) return;
+  try {
+    const migratedMap = JSON.parse(localStorage.getItem(STORAGE_KEYS.MIGRATED_MAP) || '{}');
+    const userSet = new Set(migratedMap[userId] || []);
+    attemptIds.forEach((id) => userSet.add(id));
+    migratedMap[userId] = Array.from(userSet);
+    localStorage.setItem(STORAGE_KEYS.MIGRATED_MAP, JSON.stringify(migratedMap));
+  } catch (err) {
+    console.warn('Failed to dismiss guest attempts:', err);
+  }
+}
+
+/**
  * 4. Selective Guest Quiz Migration
- * Returns guest attempts that haven't been linked to this account
+ * Returns guest attempts that haven't been linked or dismissed for this account
  */
 export function getUnmigratedGuestAttempts(userId) {
   try {
@@ -237,7 +318,8 @@ export function getUnmigratedGuestAttempts(userId) {
 }
 
 /**
- * Migrate ONLY the guest attempts selected by the student
+ * Migrate ONLY the guest attempts explicitly selected by the student (AD18-07)
+ * Ensures strict user validation, ID deduplication, verified persistence, and error handling.
  */
 export async function migrateSelectedGuestAttempts(selectedAttemptIds, targetUserId, userFullName = '') {
   if (!targetUserId || !Array.isArray(selectedAttemptIds) || selectedAttemptIds.length === 0) {
@@ -247,22 +329,23 @@ export async function migrateSelectedGuestAttempts(selectedAttemptIds, targetUse
   // Guard: race condition check
   const activeId = getActiveSessionUserId();
   if (activeId && activeId !== targetUserId) {
-    throw new Error('Sesi akun telah berubah saat proses migrasi berjalan.');
+    throw new Error('Sesi akun telah berubah saat proses migrasi berjalan. Akses ditolak.');
   }
 
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.GUEST_HISTORY);
     if (!raw) return { success: true, migratedCount: 0 };
     const allGuest = JSON.parse(raw);
+    if (!Array.isArray(allGuest)) return { success: true, migratedCount: 0 };
 
     const toMigrate = allGuest.filter((a) => selectedAttemptIds.includes(a.attemptId));
     if (toMigrate.length === 0) return { success: true, migratedCount: 0 };
 
-    // 1. Save to user's local history
-    const userHistoryKey = `chem_user_history_${targetUserId}`;
-    const existing = JSON.parse(localStorage.getItem(userHistoryKey) || '[]');
+    // 1. Load and deduplicate existing user history
+    const existing = getUserLocalHistory(targetUserId);
     const existingIds = new Set(existing.map((e) => e.attemptId));
 
+    // Filter to genuine new items not already present in user history
     const newItems = toMigrate
       .filter((item) => !existingIds.has(item.attemptId))
       .map((item) => ({
@@ -273,19 +356,47 @@ export async function migrateSelectedGuestAttempts(selectedAttemptIds, targetUse
         migratedAt: new Date().toISOString(),
       }));
 
-    localStorage.setItem(userHistoryKey, JSON.stringify([...newItems, ...existing]));
+    // If all items already exist, mark as migrated in map and return
+    if (newItems.length === 0) {
+      const migratedMap = JSON.parse(localStorage.getItem(STORAGE_KEYS.MIGRATED_MAP) || '{}');
+      const userSet = new Set(migratedMap[targetUserId] || []);
+      selectedAttemptIds.forEach((id) => userSet.add(id));
+      migratedMap[targetUserId] = Array.from(userSet);
+      localStorage.setItem(STORAGE_KEYS.MIGRATED_MAP, JSON.stringify(migratedMap));
+      return { success: true, migratedCount: 0, reason: 'already_migrated' };
+    }
 
-    // 2. Queue or sync to Firestore
+    // 2. Verified Local Storage Persistence First
+    const mergedLocal = deduplicateAttempts([...newItems, ...existing]);
+    const saveLocalSuccess = saveUserLocalHistory(targetUserId, mergedLocal);
+    if (!saveLocalSuccess) {
+      throw new Error('Gagal menyimpan riwayat migrasi ke penyimpanan lokal perangkat.');
+    }
+
+    // 3. Process Cloud Sync or Offline Queue for each item
     for (const item of newItems) {
-      if (getActiveSessionUserId() !== targetUserId) break; // abort if user logged out
+      if (getActiveSessionUserId() !== targetUserId) {
+        throw new Error('Sesi akun berubah selama proses sinkronisasi migrasi.');
+      }
       if (isFirebaseConfigured() && db) {
-        await saveQuizAttemptToFirestore(item, targetUserId);
+        try {
+          const syncRes = await saveQuizAttemptToFirestore(item, targetUserId);
+          if (syncRes.success) {
+            markLocalAttemptSynced(targetUserId, item.attemptId);
+          } else {
+            // Firestore returned failure -> enqueue for offline sync
+            enqueueAccountAttempt(targetUserId, item);
+          }
+        } catch {
+          // Network / Firestore error -> enqueue for offline sync
+          enqueueAccountAttempt(targetUserId, item);
+        }
       } else {
         enqueueAccountAttempt(targetUserId, item);
       }
     }
 
-    // 3. Mark as migrated in map
+    // 4. Mark as migrated in map only AFTER verified local save & sync/queue
     const migratedMap = JSON.parse(localStorage.getItem(STORAGE_KEYS.MIGRATED_MAP) || '{}');
     const userSet = new Set(migratedMap[targetUserId] || []);
     selectedAttemptIds.forEach((id) => userSet.add(id));
@@ -443,9 +554,19 @@ export function calculateItemAnalysis(submissions, attemptRule = 'latest') {
   const evaluatedCount = filtered.length;
   const uniqueStudents = new Set(filtered.map((s) => s.userId || s.userFullName)).size;
 
-  // 2. Compute item statistics for each question 1-10
-  const items = soalHidrolisisGaram.map((q, idx) => {
-    const counts = { A: 0, B: 0, C: 0, D: 0 };
+  // 2. Compute item statistics for each question using version/snapshot-aware question bank
+  let referenceQuestions = soalHidrolisisGaram;
+  const sampleWithSnapshot = filtered.find(
+    (sub) => Array.isArray(sub.questionSnapshot) && sub.questionSnapshot.length > 0
+  );
+  if (sampleWithSnapshot) {
+    referenceQuestions = sampleWithSnapshot.questionSnapshot;
+  } else if (filtered.length > 0 && filtered[0].questionVersion) {
+    referenceQuestions = getQuestionsForAttempt(filtered[0]);
+  }
+
+  const items = referenceQuestions.map((q, idx) => {
+    const counts = { A: 0, B: 0, C: 0, D: 0, E: 0 };
     let correctCount = 0;
     let wrongCount = 0;
 
@@ -481,6 +602,7 @@ export function calculateItemAnalysis(submissions, attemptRule = 'latest') {
       B: { count: counts.B, percentage: totalAnswered ? Math.round((counts.B / totalAnswered) * 100) : 0 },
       C: { count: counts.C, percentage: totalAnswered ? Math.round((counts.C / totalAnswered) * 100) : 0 },
       D: { count: counts.D, percentage: totalAnswered ? Math.round((counts.D / totalAnswered) * 100) : 0 },
+      E: { count: counts.E, percentage: totalAnswered ? Math.round((counts.E / totalAnswered) * 100) : 0 },
     };
 
     // Find most picked distractor

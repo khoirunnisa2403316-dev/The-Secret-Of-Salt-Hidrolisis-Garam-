@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import atomMolecule from '../assets/images/atom-molecule.svg';
 import {
   fetchTeacherClassSubmissions,
   calculateItemAnalysis,
 } from '../services/firestoreQuizService';
-import { soalHidrolisisGaram } from '../data/soalHidrolisisGaram';
+import { getQuestionsForAttempt } from '../data/soalHidrolisisGaram';
 import './TeacherDashboard.css';
 
 /**
@@ -31,6 +32,14 @@ export default function TeacherDashboard() {
 
   // Single Attempt Inspection Modal
   const [inspectingAttempt, setInspectingAttempt] = useState(null);
+
+  // W3C ARIA focus trap for Inspection Modal (AD18-08)
+  const inspectModalRef = useFocusTrap({
+    isOpen: Boolean(inspectingAttempt),
+    onClose: () => setInspectingAttempt(null),
+    initialFocusSelector: '.teacher-modal-close',
+    restoreFocus: true,
+  });
 
   // Load submissions from Firestore or Local Cache
   const loadSubmissions = useCallback(async () => {
@@ -580,7 +589,7 @@ export default function TeacherDashboard() {
                           </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
-                              {['A', 'B', 'C', 'D'].map((opt) => {
+                              {['A', 'B', 'C', 'D', 'E'].map((opt) => {
                                 const isKey = opt === item.jawabanBenar;
                                 const isDistractorHigh =
                                   !isKey && item.mostPickedDistractor === opt && item.frequencies[opt].count > 0;
@@ -642,11 +651,13 @@ export default function TeacherDashboard() {
       {inspectingAttempt && (
         <div className="teacher-modal-backdrop" onClick={() => setInspectingAttempt(null)}>
           <div
+            ref={inspectModalRef}
             className="teacher-modal-dialog"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="attempt-modal-title"
+            tabIndex={-1}
           >
             <div className="teacher-modal-header">
               <div>
@@ -686,18 +697,23 @@ export default function TeacherDashboard() {
                 </span>
                 <span>
                   <strong>Versi Soal:</strong> v{inspectingAttempt.questionVersion || '1.0.0'}
+                  {Array.isArray(inspectingAttempt.questionSnapshot) && inspectingAttempt.questionSnapshot.length > 0 && (
+                    <span style={{ marginLeft: 6, fontSize: '0.725rem', color: '#0D9488', fontWeight: 600 }}>
+                      (Snapshot Tersimpan)
+                    </span>
+                  )}
                 </span>
                 <span>
                   <strong>Jawaban Benar:</strong> {inspectingAttempt.correctCount} dari 10 soal
                 </span>
               </div>
 
-              {soalHidrolisisGaram.map((q, idx) => {
+              {getQuestionsForAttempt(inspectingAttempt).map((q, idx) => {
                 const answer = inspectingAttempt.answers?.[q.id];
                 const selectedOpt = answer?.selectedOption || '-';
                 const isCorrect = Boolean(answer?.isCorrect);
-                const selectedOptionObj = q.opsi.find((o) => o.id === selectedOpt);
-                const correctOptionObj = q.opsi.find((o) => o.id === q.jawabanBenar);
+                const selectedOptionObj = q.opsi?.find((o) => o.id === selectedOpt);
+                const correctOptionObj = q.opsi?.find((o) => o.id === q.jawabanBenar);
 
                 return (
                   <div

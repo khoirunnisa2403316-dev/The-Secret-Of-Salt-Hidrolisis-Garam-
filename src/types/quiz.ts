@@ -4,7 +4,7 @@
  */
 
 export interface QuizOption {
-  id: string; // "A" | "B" | "C" | "D"
+  id: string; // "A" | "B" | "C" | "D" | "E"
   teks: string;
 }
 
@@ -22,15 +22,16 @@ export interface QuizQuestion {
  */
 export interface SubmittedAnswer {
   questionId: string;
-  selectedOption: string; // "A" | "B" | "C" | "D"
+  selectedOption: string; // "A" | "B" | "C" | "D" | "E"
   isCorrect: boolean;
   answeredAt: string; // ISO 8601 string
 }
 
 /**
- * Active in-progress guest quiz session
+ * Active in-progress guest or authenticated quiz session
  */
 export interface GuestQuizSession {
+  userId?: string; // Authenticated user ID (or undefined for isolated guest session)
   guestSessionId: string;
   attemptId: string;
   questionVersion: string;
@@ -56,6 +57,7 @@ export interface QuizAttemptHistoryItem {
   startedAt: string;
   completedAt: string;
   answers: Record<string, SubmittedAnswer>;
+  questionSnapshot?: QuizQuestion[];
 }
 
 /**
