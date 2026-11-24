@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AuthContext } from './useAuth';
+import GoogleAccountPickerModal from '../components/GoogleAccountPickerModal';
 import {
   getCurrentSession,
   loginUser,
@@ -10,6 +11,7 @@ import {
   switchDemoAccount,
   setSession,
   clearSession,
+  isTeacherEmail,
 } from '../services/authService';
 import {
   auth,
@@ -24,6 +26,10 @@ export function AuthProvider({ children }) {
   const [session, setSessionState] = useState(() => getCurrentSession());
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
+  const [googlePickerState, setGooglePickerState] = useState({
+    isOpen: false,
+    resolver: null,
+  });
 
   // Real-time Firebase Authentication listener
   useEffect(() => {
@@ -39,13 +45,14 @@ export function AuthProvider({ children }) {
           }
 
           // Fetch full profile from Firestore if available
+          const userRole = isTeacherEmail(fbUser.email) ? 'teacher' : 'student';
           let profile = {
             uid: fbUser.uid,
             id: fbUser.uid,
             email: fbUser.email,
             fullName: fbUser.displayName || fbUser.email?.split('@')[0],
-            role: 'student',
-            classGrade: 'XI Fase F',
+            role: userRole,
+            classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F',
             schoolName: 'SMA / MA Laboratorium',
           };
 
@@ -53,7 +60,8 @@ export function AuthProvider({ children }) {
             try {
               const snap = await getDoc(doc(db, 'users', fbUser.uid));
               if (snap.exists()) {
-                profile = { ...profile, ...snap.data() };
+                const data = snap.data();
+                profile = { ...profile, ...data, role: data?.role || userRole };
               }
             } catch (err) {
               console.warn('Firestore profile load notice:', err);
@@ -65,7 +73,7 @@ export function AuthProvider({ children }) {
         } else {
           // User signed out in Firebase
           const current = getCurrentSession();
-          if (current?.user?.authProvider === 'firebase') {
+          if (current?.user?.authProvider === 'firebase' || current?.user?.authProvider === 'google') {
             clearSession();
             setSessionState(null);
           }
@@ -111,15 +119,58 @@ export function AuthProvider({ children }) {
     setIsLoading(true);
     setAuthError(null);
     try {
-      const newSession = await authLoginWithGoogle();
-      setSessionState(newSession);
-      return { success: true, user: newSession.user };
+      if (isFirebaseConfigured() && auth) {
+        const newSession = await authLoginWithGoogle();
+        setSessionState(newSession);
+        return { success: true, user: newSession.user };
+      }
+
+      // Mode simulasi/lokal: Tampilkan dialog pemilih akun Google yang eksplisit
+      return await new Promise((resolve) => {
+        setGooglePickerState({
+          isOpen: true,
+          resolver: resolve,
+        });
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Masuk dengan Google gagal.';
       setAuthError(msg);
       return { success: false, error: msg };
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSelectGoogleAccount = async (account) => {
+    const resolver = googlePickerState.resolver;
+    setGooglePickerState({ isOpen: false, resolver: null });
+    setIsLoading(true);
+    setAuthError(null);
+    try {
+      const newSession = await authLoginWithGoogle(account);
+      setSessionState(newSession);
+      if (resolver) {
+        resolver({ success: true, user: newSession.user });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Gagal masuk dengan akun Google yang dipilih.';
+      setAuthError(msg);
+      if (resolver) {
+        resolver({ success: false, error: msg });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelGooglePicker = () => {
+    const resolver = googlePickerState.resolver;
+    setGooglePickerState({ isOpen: false, resolver: null });
+    if (resolver) {
+      resolver({
+        success: false,
+        error: 'Proses masuk dengan Google dibatalkan oleh pengguna.',
+      });
     }
   };
 
@@ -181,7 +232,16 @@ export function AuthProvider({ children }) {
     isFirebaseConfigured: isFirebaseConfigured(),
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <GoogleAccountPickerModal
+        isOpen={googlePickerState.isOpen}
+        onSelectAccount={handleSelectGoogleAccount}
+        onCancel={handleCancelGooglePicker}
+      />
+    </AuthContext.Provider>
+  );
 }
 
 export default AuthProvider;

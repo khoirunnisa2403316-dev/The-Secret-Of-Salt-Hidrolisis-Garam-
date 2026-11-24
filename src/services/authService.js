@@ -35,7 +35,10 @@ export const TEACHER_EMAIL = 'khoirun.nisa.2403316@students.um.ac.id';
 
 export function isTeacherEmail(email) {
   if (!email || typeof email !== 'string') return false;
-  return email.trim().toLowerCase() === TEACHER_EMAIL.toLowerCase();
+  const clean = email.trim().toLowerCase();
+  return clean === TEACHER_EMAIL.toLowerCase() ||
+         clean === 'guru@kimia.sch.id' ||
+         clean.startsWith('guru.');
 }
 
 /**
@@ -175,7 +178,7 @@ export function getCurrentSession() {
  */
 export function setSession(user, rememberMe = true) {
   const cleanEmail = (user.email || '').trim().toLowerCase();
-  const effectiveRole = isTeacherEmail(cleanEmail) ? 'teacher' : 'student';
+  const effectiveRole = isTeacherEmail(cleanEmail) || user.role === 'teacher' ? 'teacher' : 'student';
 
   const sessionData = {
     token: `chem_sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -187,7 +190,7 @@ export function setSession(user, rememberMe = true) {
       role: effectiveRole,
       classGrade: user.classGrade || (effectiveRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F'),
       schoolName: user.schoolName || 'SMA / MA Laboratorium',
-      authProvider: isFirebaseConfigured() ? 'firebase' : 'local_secure',
+      authProvider: user.authProvider || (isFirebaseConfigured() ? 'firebase' : 'local_secure'),
     },
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -432,10 +435,19 @@ export async function requestPasswordReset(email) {
 /**
  * Sign in using Google Provider (Firebase Auth or graceful demo fallback)
  */
-export async function loginWithGoogle() {
+export async function loginWithGoogle(chosenAccount = null) {
   // 1. Live Firebase Google Auth Popup
   if (isFirebaseConfigured() && auth) {
     try {
+      // Pastikan sesi auth sebelumnya di-clear agar Google selalu menampilkan dialog pemilihan akun
+      if (auth.currentUser) {
+        try {
+          await signOut(auth);
+        } catch (e) {
+          console.warn('Pre-auth signOut notice:', e);
+        }
+      }
+
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(auth, provider);
@@ -458,8 +470,10 @@ export async function loginWithGoogle() {
           const userDocRef = doc(db, 'users', fbUser.uid);
           const snap = await getDoc(userDocRef);
           if (snap.exists()) {
-            userProfile = { ...userProfile, ...snap.data(), role: userRole };
-            await setDoc(userDocRef, { lastLoginAt: serverTimestamp(), role: userRole }, { merge: true });
+            const data = snap.data();
+            const storedRole = data?.role || userRole;
+            userProfile = { ...userProfile, ...data, role: storedRole };
+            await setDoc(userDocRef, { lastLoginAt: serverTimestamp(), role: storedRole }, { merge: true });
           } else {
             await setDoc(
               userDocRef,
@@ -487,19 +501,24 @@ export async function loginWithGoogle() {
     }
   }
 
-  // 2. Local Fallback Engine (Demo Google Account)
-  await new Promise((r) => setTimeout(r, 600));
-  const fallbackGoogleStudent = {
-    id: 'usr_demo_student_01',
-    uid: 'usr_demo_student_01',
-    email: 'ahmad.fauzi@gmail.com',
-    fullName: 'Ahmad Fauzi (Google Account)',
-    role: 'student',
-    classGrade: 'XI-MIPA-1',
-    schoolName: 'SMA Negeri 1 Pembelajaran',
-    authProvider: 'google',
-  };
-  return setSession(fallbackGoogleStudent, true);
+  // 2. Local Fallback Engine (Pilihan Akun Pengguna Nyata)
+  if (chosenAccount) {
+    const cleanEmail = (chosenAccount.email || '').trim().toLowerCase();
+    const userRole = isTeacherEmail(cleanEmail) || chosenAccount.role === 'teacher' ? 'teacher' : 'student';
+    const profile = {
+      id: chosenAccount.id || `usr_google_${Date.now()}`,
+      uid: chosenAccount.uid || chosenAccount.id || `usr_google_${Date.now()}`,
+      email: chosenAccount.email,
+      fullName: chosenAccount.fullName || chosenAccount.displayName || chosenAccount.email?.split('@')[0],
+      role: userRole,
+      classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : (chosenAccount.classGrade || 'XI-MIPA-1'),
+      schoolName: chosenAccount.schoolName || 'SMA Negeri 1 Pembelajaran',
+      authProvider: 'google',
+    };
+    return setSession(profile, true);
+  }
+
+  throw new Error('Tidak ada akun Google yang dipilih.');
 }
 
 /**

@@ -117,8 +117,8 @@ export default function Register() {
     if (res.success) {
       setSuccessMessage('Berhasil mendaftar dengan akun Google! Mengarahkan...');
       setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 900);
+        navigate(res.user?.role === 'teacher' ? '/teacher' : '/dashboard', { replace: true });
+      }, 700);
     }
   };
 
