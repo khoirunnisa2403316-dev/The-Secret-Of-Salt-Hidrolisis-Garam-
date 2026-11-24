@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import atomMolecule from '../assets/images/atom-molecule.svg';
 import {
   fetchTeacherClassSubmissions,
@@ -31,6 +32,14 @@ export default function TeacherDashboard() {
 
   // Single Attempt Inspection Modal
   const [inspectingAttempt, setInspectingAttempt] = useState(null);
+
+  // W3C ARIA focus trap for Inspection Modal (AD18-08)
+  const inspectModalRef = useFocusTrap({
+    isOpen: Boolean(inspectingAttempt),
+    onClose: () => setInspectingAttempt(null),
+    initialFocusSelector: '.teacher-modal-close',
+    restoreFocus: true,
+  });
 
   // Load submissions from Firestore or Local Cache
   const loadSubmissions = useCallback(async () => {
@@ -642,11 +651,13 @@ export default function TeacherDashboard() {
       {inspectingAttempt && (
         <div className="teacher-modal-backdrop" onClick={() => setInspectingAttempt(null)}>
           <div
+            ref={inspectModalRef}
             className="teacher-modal-dialog"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="attempt-modal-title"
+            tabIndex={-1}
           >
             <div className="teacher-modal-header">
               <div>

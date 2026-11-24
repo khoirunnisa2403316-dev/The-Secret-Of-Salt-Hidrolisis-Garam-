@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/useAuth';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { saveQuizAttemptToFirestore, enqueueAccountAttempt } from '../../services/firestoreQuizService';
 import { isFirebaseConfigured } from '../../services/firebase';
 import {
@@ -160,6 +161,21 @@ export default function QuizModule1() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // W3C ARIA Focus Trap for Clear History and Unarchived Retake Modals (AD18-08)
+  const clearConfirmModalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: isClearConfirmOpen,
+    onClose: () => setIsClearConfirmOpen(false),
+    initialFocusSelector: '.btn-modal-cancel',
+    restoreFocus: true,
+  });
+
+  const unarchivedModalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: isUnarchivedRetakeConfirmOpen,
+    onClose: () => setIsUnarchivedRetakeConfirmOpen(false),
+    initialFocusSelector: '.btn-modal-cancel',
+    restoreFocus: true,
+  });
 
   // Sync session changes to localStorage safely in the user's isolated namespace (AD18-06)
   const persistSession = useCallback(
@@ -1224,7 +1240,7 @@ export default function QuizModule1() {
             aria-modal="true"
             aria-labelledby="clear-modal-title"
           >
-            <div className="modal-confirm-box">
+            <div ref={clearConfirmModalRef} className="modal-confirm-box" tabIndex={-1}>
               <div className="modal-confirm-icon" aria-hidden="true">
                 ⚠️
               </div>
@@ -1263,7 +1279,7 @@ export default function QuizModule1() {
             aria-modal="true"
             aria-labelledby="unarchived-modal-title"
           >
-            <div className="modal-confirm-box" style={{ maxWidth: '480px' }}>
+            <div ref={unarchivedModalRef} className="modal-confirm-box" style={{ maxWidth: '480px' }} tabIndex={-1}>
               <div className="modal-confirm-icon" aria-hidden="true" style={{ fontSize: '2.5rem' }}>
                 🚨
               </div>

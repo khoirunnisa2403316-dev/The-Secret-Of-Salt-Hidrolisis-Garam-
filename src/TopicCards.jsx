@@ -1,19 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useFocusTrap } from './hooks/useFocusTrap';
 
 export default function TopicCards() {
   const [activeTopic, setActiveTopic] = useState(null);
   const [quizState, setQuizState] = useState({});
 
-  // Close modal with Escape key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setActiveTopic(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  // W3C ARIA focus trap and keyboard navigation for Topic Modal (AD18-08)
+  const modalContainerRef = useFocusTrap({
+    isOpen: Boolean(activeTopic),
+    onClose: () => setActiveTopic(null),
+    initialFocusSelector: '.modal-close-btn',
+    restoreFocus: true,
+  });
 
   const topics = [
     {
@@ -222,7 +220,12 @@ export default function TopicCards() {
           aria-modal="true"
           aria-labelledby="topic-modal-title"
         >
-          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={modalContainerRef}
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+            tabIndex={-1}
+          >
             <div className="modal-header">
               <div className="modal-title-row">
                 <span className="modal-icon" aria-hidden="true">{activeTopic.icon}</span>
