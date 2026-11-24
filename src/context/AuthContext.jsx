@@ -59,7 +59,8 @@ export function AuthProvider({ children }) {
                 profile = { ...profile, ...data, role: data?.role || userRole };
               }
             } catch (err) {
-              if (err?.code !== 'permission-denied') {
+              const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
+              if (!isPermission) {
                 console.warn('Firestore profile load notice:', err?.message || err);
               }
             }

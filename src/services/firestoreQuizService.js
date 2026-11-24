@@ -104,7 +104,8 @@ export async function fetchUserQuizHistoryFromFirestore(userId) {
     });
     return list;
   } catch (err) {
-    if (err?.code === 'permission-denied') {
+    const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
+    if (isPermission) {
       return [];
     }
     try {
@@ -118,7 +119,8 @@ export async function fetchUserQuizHistoryFromFirestore(userId) {
       list.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
       return list;
     } catch (e) {
-      if (e?.code !== 'permission-denied') {
+      const isFallbackPerm = e?.code === 'permission-denied' || e?.message?.toLowerCase().includes('permission');
+      if (!isFallbackPerm) {
         console.warn('Firestore quiz history fetch fallback notice:', e?.message || e);
       }
       return [];

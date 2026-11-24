@@ -58,7 +58,8 @@ export default function Dashboard() {
           localAttempts = deduplicateAttempts([...firestoreAttempts, ...localAttempts]);
         }
       } catch (err) {
-        if (err?.code !== 'permission-denied') {
+        const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
+        if (!isPermission) {
           console.warn('Firestore history load notice:', err?.message || err);
         }
       }
@@ -88,7 +89,8 @@ export default function Dashboard() {
             localAttempts = deduplicateAttempts([...firestoreAttempts, ...localAttempts]);
           }
         } catch (err) {
-          if (err?.code !== 'permission-denied') {
+          const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
+          if (!isPermission) {
             console.warn('Firestore history load notice:', err?.message || err);
           }
         }

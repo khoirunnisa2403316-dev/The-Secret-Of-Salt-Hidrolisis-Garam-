@@ -501,7 +501,8 @@ export async function loginWithGoogle() {
           }
         }
       } catch (err) {
-        if (err?.code !== 'permission-denied') {
+        const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
+        if (!isPermission) {
           console.warn('Firestore database check notice:', err?.message || err);
         }
       }
@@ -564,7 +565,8 @@ export async function loginWithGoogle() {
         const userDocRef = doc(db, 'users', fbUser.uid);
         await setDoc(userDocRef, { ...userProfile, lastLoginAt: serverTimestamp() }, { merge: true });
       } catch (err) {
-        if (err?.code !== 'permission-denied') {
+        const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
+        if (!isPermission) {
           console.warn('Firestore lastLoginAt notice:', err?.message || err);
         }
       }
