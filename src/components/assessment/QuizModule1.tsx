@@ -12,8 +12,8 @@ import type {
   SubmittedAnswer,
 } from '../../types/quiz';
 import {
-  loadGuestSession,
-  saveGuestSession,
+  loadQuizSession,
+  saveQuizSession,
   loadQuizHistory,
   saveQuizHistory,
   clearDeviceHistory,
@@ -25,40 +25,83 @@ import {
 } from '../../services/storageAdapter';
 import './QuizModule1.css';
 
+/**
+ * Safely load initial session based on active user identity (AD18-06)
+ */
+function getInitialSessionLoad(userId?: string) {
+  const available = isLocalStorageAvailable();
+  if (!available) {
+    return {
+      session: createNewGuestSession(undefined, userId),
+      isAvailable: false,
+      error: 'Penyimpanan lokal perangkat Anda tidak aktif atau ditolak oleh peramban.',
+    };
+  }
+  const loaded = loadQuizSession(userId);
+  if (loaded.success && loaded.data) {
+    return {
+      session: loaded.data,
+      isAvailable: true,
+      error: undefined,
+    };
+  }
+  return {
+    session: createNewGuestSession(undefined, userId),
+    isAvailable: true,
+    error: loaded.error,
+  };
+}
+
 export default function QuizModule1() {
   const { user } = useAuth();
+  const currentUserId = user?.id || user?.uid || undefined;
 
-  const [initialLoadResult] = useState(() => {
-    const available = isLocalStorageAvailable();
-    if (!available) {
-      return {
-        session: createNewGuestSession(),
-        isAvailable: false,
-        error: 'Penyimpanan lokal perangkat Anda tidak aktif atau ditolak oleh peramban.',
-      };
-    }
-    const loaded = loadGuestSession();
-    if (loaded.success && loaded.data) {
-      return {
-        session: loaded.data,
-        isAvailable: true,
-        error: undefined,
-      };
-    }
-    return {
-      session: createNewGuestSession(),
-      isAvailable: true,
-      error:
-        loaded.error ||
-        'Data sesi tersimpan tidak sesuai format dan gagal dipulihkan. Sesi kuis baru telah dimulai.',
-    };
-  });
+  // Track previous user to detect login, logout, and account-switching (AD18-06)
+  const [prevUserId, setPrevUserId] = useState<string | undefined>(currentUserId);
+
+  const [initialLoadResult, setInitialLoadResult] = useState(() =>
+    getInitialSessionLoad(currentUserId)
+  );
 
   const [session, setSession] = useState<GuestQuizSession>(initialLoadResult.session);
 
   const [history, setHistory] = useState<QuizAttemptHistoryItem[]>(() => {
     const loaded = loadQuizHistory();
-    return loaded.data || [];
+    const loadedHistory = loaded.data || [];
+    const loadedSession = initialLoadResult.session;
+
+    // If loaded active session was completed but not in history, attempt to archive it safely on boot
+    if (
+      loadedSession &&
+      loadedSession.status === 'completed' &&
+      loadedSession.score !== null &&
+      loadedSession.attemptId &&
+      !loadedHistory.some((item) => item.attemptId === loadedSession.attemptId)
+    ) {
+      const finalCorrect = Object.values(loadedSession.submittedAnswers || {}).filter(
+        (a) => a?.isCorrect
+      ).length;
+      const itemToArchive: QuizAttemptHistoryItem = {
+        attemptId: loadedSession.attemptId,
+        guestSessionId: loadedSession.guestSessionId,
+        questionVersion: loadedSession.questionVersion || SOAL_VERSION,
+        totalQuestions: soalHidrolisisGaram.length,
+        correctCount: finalCorrect,
+        score: loadedSession.score,
+        startedAt: loadedSession.startedAt,
+        completedAt: loadedSession.completedAt || new Date().toISOString(),
+        answers: loadedSession.submittedAnswers || {},
+        questionSnapshot: soalHidrolisisGaram,
+      };
+
+      const updatedHistory = [itemToArchive, ...loadedHistory];
+      const saveRes = saveQuizHistory(updatedHistory);
+      if (saveRes.success) {
+        return updatedHistory;
+      }
+    }
+
+    return loadedHistory;
   });
 
   const [storageStatus, setStorageStatus] = useState<{
@@ -69,36 +112,88 @@ export default function QuizModule1() {
     error: initialLoadResult.error,
   });
 
+  // Separate state for history archive failures (AD18-05: decoupled from storageStatus)
+  const [archiveError, setArchiveError] = useState<string | null>(() => {
+    // If loaded session is completed, check if it's missing from history on mount / refresh
+    const s = initialLoadResult.session;
+    if (s && s.status === 'completed' && s.score !== null && s.attemptId) {
+      const currentHistory = loadQuizHistory().data || [];
+      const exists = currentHistory.some((item) => item.attemptId === s.attemptId);
+      if (!exists) {
+        return 'Gagal menyimpan riwayat karena penyimpanan penuh. Hasil ini belum tersimpan di riwayat.';
+      }
+    }
+    return null;
+  });
+
+  const [hasExported, setHasExported] = useState(false);
+  const [isUnarchivedRetakeConfirmOpen, setIsUnarchivedRetakeConfirmOpen] = useState(false);
+
+  // Synchronously adjust state during render when account changes (standard React pattern - AD18-06)
+  if (prevUserId !== currentUserId) {
+    setPrevUserId(currentUserId);
+    const freshLoaded = getInitialSessionLoad(currentUserId);
+    setInitialLoadResult(freshLoaded);
+    setSession(freshLoaded.session);
+    setStorageStatus({
+      isAvailable: freshLoaded.isAvailable,
+      error: freshLoaded.error,
+    });
+    setHasExported(false);
+    setIsUnarchivedRetakeConfirmOpen(false);
+
+    // Recheck unarchived status for the newly loaded user session
+    const s = freshLoaded.session;
+    const h = loadQuizHistory().data || [];
+    if (s && s.status === 'completed' && s.score !== null && s.attemptId) {
+      const exists = h.some((item) => item.attemptId === s.attemptId);
+      setArchiveError(
+        exists
+          ? null
+          : 'Gagal menyimpan riwayat karena penyimpanan penuh. Hasil ini belum tersimpan di riwayat.'
+      );
+    } else {
+      setArchiveError(null);
+    }
+  }
+
   const [rulesOpen, setRulesOpen] = useState(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Sync session changes to localStorage safely
-  const persistSession = useCallback((updatedSession: GuestQuizSession) => {
-    const cleanSession = sanitizeGuestSession(updatedSession);
-    setSession(cleanSession);
-    const saveRes = saveGuestSession(cleanSession);
-    if (!saveRes.success) {
-      setStorageStatus({
-        isAvailable: false,
-        error: saveRes.error || 'Gagal menyimpan draf kuis ke memori perangkat.',
-      });
-    } else {
-      setStorageStatus({
-        isAvailable: true,
-      });
-    }
-  }, []);
+  // Sync session changes to localStorage safely in the user's isolated namespace (AD18-06)
+  const persistSession = useCallback(
+    (updatedSession: GuestQuizSession) => {
+      const cleanSession = sanitizeGuestSession(updatedSession, currentUserId);
+      setSession(cleanSession);
+      const saveRes = saveQuizSession(cleanSession, currentUserId);
+      if (!saveRes.success) {
+        setStorageStatus({
+          isAvailable: false,
+          error: saveRes.error || 'Gagal menyimpan draf kuis ke memori perangkat.',
+        });
+      } else {
+        setStorageStatus({
+          isAvailable: true,
+        });
+      }
+    },
+    [currentUserId]
+  );
 
-  // Sync history changes to localStorage safely
+  // Sync history changes to localStorage safely - completely decoupled from storageStatus
   const persistHistory = useCallback((updatedHistory: QuizAttemptHistoryItem[]) => {
     setHistory(updatedHistory);
     const saveRes = saveQuizHistory(updatedHistory);
     if (!saveRes.success) {
-      setStorageStatus({
-        isAvailable: false,
-        error: saveRes.error || 'Gagal menyimpan riwayat kuis.',
-      });
+      setArchiveError(
+        saveRes.error ||
+          'Gagal menyimpan riwayat karena penyimpanan penuh. Hasil ini belum tersimpan di riwayat.'
+      );
+      return false;
+    } else {
+      setArchiveError(null);
+      return true;
     }
   }, []);
 
@@ -294,12 +389,114 @@ export default function QuizModule1() {
     persistSession(updated);
   };
 
-  // Retake quiz with brand new attempt ID
-  const handleRetakeQuiz = () => {
-    const { newSession, updatedHistory } = retakeQuizWithNewAttempt(session, history);
-    persistHistory(updatedHistory);
+  // Check if current completed attempt is unarchived in history (AD18-05)
+  const isCurrentAttemptUnarchived =
+    session.status === 'completed' &&
+    session.score !== null &&
+    (Boolean(archiveError) || !history.some((h) => h.attemptId === session.attemptId));
+
+  // Retry archiving active completed session to history
+  const handleRetryArchive = useCallback(() => {
+    const finalCorrect = Object.values(session.submittedAnswers || {}).filter(
+      (a) => a?.isCorrect
+    ).length;
+    const finalScore =
+      session.score !== null ? session.score : Math.round((finalCorrect / totalQuestions) * 100);
+
+    const itemToArchive: QuizAttemptHistoryItem = {
+      attemptId: session.attemptId,
+      guestSessionId: session.guestSessionId,
+      questionVersion: session.questionVersion || SOAL_VERSION,
+      totalQuestions,
+      correctCount: finalCorrect,
+      score: finalScore,
+      startedAt: session.startedAt,
+      completedAt: session.completedAt || new Date().toISOString(),
+      answers: session.submittedAnswers || {},
+      questionSnapshot: soalHidrolisisGaram,
+    };
+
+    const existingIdx = history.findIndex((h) => h.attemptId === session.attemptId);
+    const updatedHistoryList =
+      existingIdx >= 0
+        ? history.map((h, i) => (i === existingIdx ? itemToArchive : h))
+        : [itemToArchive, ...history];
+
+    const saveRes = saveQuizHistory(updatedHistoryList);
+    if (saveRes.success) {
+      setHistory(updatedHistoryList);
+      setArchiveError(null);
+      setIsUnarchivedRetakeConfirmOpen(false);
+    } else {
+      setArchiveError(
+        saveRes.error ||
+          'Gagal menyimpan riwayat karena penyimpanan penuh. Hasil ini belum tersimpan di riwayat.'
+      );
+    }
+  }, [history, session, totalQuestions]);
+
+  // Export quiz result to JSON so student score is never lost
+  const handleExportResult = useCallback(() => {
+    const finalCorrect = Object.values(session.submittedAnswers || {}).filter(
+      (a) => a?.isCorrect
+    ).length;
+    const finalScore =
+      session.score !== null ? session.score : Math.round((finalCorrect / totalQuestions) * 100);
+
+    const exportData = {
+      title: 'Hasil Kuis Formatif Modul 1 - Hidrolisis Garam',
+      attemptId: session.attemptId,
+      guestSessionId: session.guestSessionId,
+      questionVersion: session.questionVersion || SOAL_VERSION,
+      score: finalScore,
+      correctCount: finalCorrect,
+      totalQuestions,
+      startedAt: session.startedAt,
+      completedAt: session.completedAt || new Date().toISOString(),
+      answers: session.submittedAnswers,
+      exportedAt: new Date().toISOString(),
+    };
+
+    try {
+      const dataStr =
+        'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `Hasil_Kuis_Modul1_${session.attemptId}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      setHasExported(true);
+    } catch (err) {
+      console.error('Gagal mengekspor hasil kuis:', err);
+    }
+  }, [session, totalQuestions]);
+
+  // Execute retake and start fresh attempt in the active user's namespace (AD18-06)
+  const executeRetake = useCallback(() => {
+    setIsUnarchivedRetakeConfirmOpen(false);
+    setArchiveError(null);
+    setHasExported(false);
+    const { newSession, updatedHistory } = retakeQuizWithNewAttempt(
+      session,
+      history,
+      currentUserId
+    );
+    const saveRes = saveQuizHistory(updatedHistory);
+    if (saveRes.success) {
+      setHistory(updatedHistory);
+    }
     persistSession(newSession);
-  };
+  }, [currentUserId, history, persistSession, session]);
+
+  // Retake quiz with brand new attempt ID, protected against losing unarchived score (AD18-05)
+  const handleRetakeQuiz = useCallback(() => {
+    if (isCurrentAttemptUnarchived && !hasExported) {
+      setIsUnarchivedRetakeConfirmOpen(true);
+      return;
+    }
+    executeRetake();
+  }, [executeRetake, hasExported, isCurrentAttemptUnarchived]);
 
   // Clear device history with confirmation
   const handleConfirmClearHistory = () => {
@@ -322,6 +519,7 @@ export default function QuizModule1() {
       // Ignore if user is inside an input, textarea, or a modal is open
       if (
         isClearConfirmOpen ||
+        isUnarchivedRetakeConfirmOpen ||
         document.activeElement?.tagName === 'INPUT' ||
         document.activeElement?.tagName === 'TEXTAREA'
       ) {
@@ -365,6 +563,7 @@ export default function QuizModule1() {
     isFrozen,
     currentDraft,
     isClearConfirmOpen,
+    isUnarchivedRetakeConfirmOpen,
     totalQuestions,
     handleSelectQuestion,
     handlePickOption,
@@ -408,17 +607,124 @@ export default function QuizModule1() {
             </span>
             <span
               className={`meta-chip ${
-                storageStatus.isAvailable && !storageStatus.error
+                archiveError
+                  ? 'chip-storage-warn'
+                  : storageStatus.isAvailable && !storageStatus.error
                   ? 'chip-storage-ok'
                   : 'chip-storage-warn'
               }`}
             >
-              {storageStatus.isAvailable && !storageStatus.error
+              {archiveError
+                ? '⚠️ Gagal Arsip Riwayat'
+                : storageStatus.isAvailable && !storageStatus.error
                 ? '💾 Penyimpanan Lokal Aktif'
                 : '⚠️ Storage Bermasalah'}
             </span>
           </div>
         </header>
+
+        {/* Persistent Archive Failure Warning Banner (AD18-05) */}
+        {archiveError && (
+          <div
+            className="storage-alert-banner archive-failure-banner"
+            role="alert"
+            style={{
+              backgroundColor: '#FEF2F2',
+              borderColor: 'var(--color-coral, #FF887A)',
+              borderWidth: '2px',
+              borderStyle: 'solid',
+              borderRadius: '16px',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <span style={{ fontSize: '1.5rem', lineHeight: 1 }} aria-hidden="true">
+                ⚠️
+              </span>
+              <div style={{ flex: 1 }}>
+                <strong
+                  style={{
+                    color: '#991B1B',
+                    fontSize: '1rem',
+                    display: 'block',
+                    marginBottom: '4px',
+                  }}
+                >
+                  Peringatan: Gagal Menyimpan Riwayat
+                </strong>
+                <p style={{ color: '#7F1D1D', margin: 0, fontSize: '0.92rem', lineHeight: 1.5 }}>
+                  {archiveError}
+                </p>
+                {hasExported && (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      marginTop: '6px',
+                      color: '#065F46',
+                      backgroundColor: '#D1FAE5',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✓ Hasil percobaan telah berhasil diekspor ke file JSON
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginLeft: '36px' }}>
+              <button
+                type="button"
+                className="btn-retry-archive"
+                onClick={handleRetryArchive}
+                style={{
+                  backgroundColor: 'var(--color-fresh-teal, #20B8AA)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '8px 16px',
+                  fontWeight: 600,
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <span>🔄</span>
+                <span>Coba Lagi / Retry</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn-export-result"
+                onClick={handleExportResult}
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  color: 'var(--color-deep-navy, #243B64)',
+                  border: '1.5px solid var(--color-deep-navy, #243B64)',
+                  borderRadius: '10px',
+                  padding: '8px 16px',
+                  fontWeight: 600,
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <span>📥</span>
+                <span>Ekspor Hasil</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Storage / Session Alert Banner */}
         {(!storageStatus.isAvailable || storageStatus.error) && (
@@ -792,6 +1098,31 @@ export default function QuizModule1() {
               </div>
             </div>
 
+            {archiveError && (
+              <div
+                style={{
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  margin: '16px 0',
+                  color: '#991B1B',
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  lineHeight: 1.5,
+                }}
+              >
+                <span aria-hidden="true" style={{ fontSize: '1.2rem' }}>
+                  ⚠️
+                </span>
+                <span>
+                  Hasil kuis ini belum tersimpan di riwayat karena kuota penyimpanan penuh. Silakan lakukan ekspor atau coba lagi sebelum memulai percobaan baru.
+                </span>
+              </div>
+            )}
+
             <div className="summary-actions-row">
               <button
                 type="button"
@@ -918,6 +1249,107 @@ export default function QuizModule1() {
                   onClick={handleConfirmClearHistory}
                 >
                   Ya, Hapus Riwayat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Separate Confirmation Modal for Unarchived Retake Quiz (AD18-05) */}
+        {isUnarchivedRetakeConfirmOpen && (
+          <div
+            className="modal-confirm-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="unarchived-modal-title"
+          >
+            <div className="modal-confirm-box" style={{ maxWidth: '480px' }}>
+              <div className="modal-confirm-icon" aria-hidden="true" style={{ fontSize: '2.5rem' }}>
+                🚨
+              </div>
+              <h3 id="unarchived-modal-title" className="modal-confirm-title" style={{ color: '#991B1B' }}>
+                Hasil Kuis Belum Tersimpan di Riwayat!
+              </h3>
+              <p className="modal-confirm-desc" style={{ textAlign: 'left', lineHeight: 1.6 }}>
+                Hasil percobaan Anda saat ini (<strong>Skor: {session.score} / 100</strong>) <strong>belum berhasil disimpan ke riwayat perangkat</strong> karena kuota penyimpanan penuh.
+                <br /><br />
+                Jika Anda memulai percobaan baru sekarang tanpa mengekspor atau mencoba simpan lagi, sesi aktif akan direset dan <strong>hasil kuis sebelumnya akan hilang permanen</strong>.
+              </p>
+
+              <div
+                style={{
+                  backgroundColor: '#F3F4F6',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  margin: '14px 0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.88rem', color: 'var(--color-deep-navy)' }}>
+                    Amankan hasil kuis Anda:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleExportResult}
+                    style={{
+                      backgroundColor: 'var(--color-fresh-teal, #20B8AA)',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    📥 Ekspor Hasil Sekarang
+                  </button>
+                </div>
+                {hasExported && (
+                  <span style={{ color: '#065F46', fontSize: '0.8rem', fontWeight: 600 }}>
+                    ✓ Berhasil diekspor! Data Anda aman.
+                  </span>
+                )}
+              </div>
+
+              <div className="modal-confirm-actions" style={{ flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', width: '100%', gap: '10px' }}>
+                  <button
+                    type="button"
+                    className="btn-modal-cancel"
+                    style={{ flex: 1 }}
+                    onClick={() => setIsUnarchivedRetakeConfirmOpen(false)}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      flex: 1,
+                      backgroundColor: 'var(--color-deep-navy, #243B64)',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '10px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                    onClick={handleRetryArchive}
+                  >
+                    🔄 Coba Simpan Lagi
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-modal-danger"
+                  style={{ width: '100%', backgroundColor: '#EF4444' }}
+                  onClick={executeRetake}
+                >
+                  Saya Paham Risikonya, Tetap Mulai Baru
                 </button>
               </div>
             </div>

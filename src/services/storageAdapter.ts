@@ -13,9 +13,21 @@ import {
 
 const STORAGE_KEYS = {
   GUEST_SESSION: 'secret_of_salt_guest_m1_session',
+  USER_SESSION_PREFIX: 'secret_of_salt_user_m1_session_',
   GUEST_HISTORY: 'secret_of_salt_guest_m1_history',
   CANARY: 'secret_of_salt_canary_test',
 };
+
+/**
+ * Compute the isolated localStorage key for a given user or guest (AD18-06).
+ * Prevents draft answer and attemptId cross-talk between user accounts.
+ */
+export function getQuizSessionStorageKey(userId?: string): string {
+  if (userId && typeof userId === 'string' && userId.trim()) {
+    return `${STORAGE_KEYS.USER_SESSION_PREFIX}${userId.trim()}`;
+  }
+  return STORAGE_KEYS.GUEST_SESSION;
+}
 
 const TOTAL_QUESTIONS = soalHidrolisisGaram.length || 10;
 
@@ -116,7 +128,7 @@ export function isLocalStorageAvailable(): boolean {
  * Validates data types, keys, question index, status, score, dates, and session version.
  * Preserves all valid user answers without data loss.
  */
-export function sanitizeAndRecoverSession(raw: unknown): {
+export function sanitizeAndRecoverSession(raw: unknown, expectedUserId?: string): {
   session: GuestQuizSession | null;
   recovered: boolean;
   unrecoverable: boolean;
@@ -137,6 +149,18 @@ export function sanitizeAndRecoverSession(raw: unknown): {
     !obj.submittedAnswers
   ) {
     return { session: null, recovered: false, unrecoverable: true };
+  }
+
+  // Security check: validate user ownership
+  const rawUserId =
+    typeof obj.userId === 'string' && obj.userId.trim() ? obj.userId.trim() : undefined;
+  if (expectedUserId && rawUserId && rawUserId !== expectedUserId) {
+    return {
+      session: null,
+      recovered: false,
+      unrecoverable: true,
+      reason: `Sesi milik akun (${rawUserId}) tidak cocok dengan pengguna aktif (${expectedUserId}).`,
+    };
   }
 
   // 1. Validate version and check safe migration before applying current question bank
@@ -361,6 +385,7 @@ export function sanitizeAndRecoverSession(raw: unknown): {
   }
 
   const session: GuestQuizSession = {
+    userId: expectedUserId || rawUserId,
     guestSessionId,
     attemptId,
     questionVersion,
@@ -379,19 +404,26 @@ export function sanitizeAndRecoverSession(raw: unknown): {
 /**
  * Defensive sanitizer wrapper returning a guaranteed valid GuestQuizSession.
  */
-export function sanitizeGuestSession(session: unknown): GuestQuizSession {
-  const res = sanitizeAndRecoverSession(session);
+export function sanitizeGuestSession(
+  session: unknown,
+  expectedUserId?: string
+): GuestQuizSession {
+  const res = sanitizeAndRecoverSession(session, expectedUserId);
   if (res.session) {
     return res.session;
   }
-  return createNewGuestSession();
+  return createNewGuestSession(undefined, expectedUserId);
 }
 
 /**
- * Initialize a brand new guest quiz session
+ * Initialize a brand new guest or authenticated quiz session
  */
-export function createNewGuestSession(existingGuestId?: string): GuestQuizSession {
+export function createNewGuestSession(
+  existingGuestId?: string,
+  userId?: string
+): GuestQuizSession {
   return {
+    userId: userId && typeof userId === 'string' && userId.trim() ? userId.trim() : undefined,
     guestSessionId: existingGuestId || generateUid('guest'),
     attemptId: generateUid('att_m1'),
     questionVersion: SOAL_VERSION,
@@ -406,10 +438,11 @@ export function createNewGuestSession(existingGuestId?: string): GuestQuizSessio
 }
 
 /**
- * Load active guest session from localStorage safely.
- * Returns error if storage is unavailable, denied, or contains corrupt JSON.
+ * Load active quiz session from localStorage safely.
+ * When userId is provided, loads the user-namespaced session.
+ * When omitted, loads the isolated guest session.
  */
-export function loadGuestSession(): StorageOperationResult<GuestQuizSession> {
+export function loadQuizSession(userId?: string): StorageOperationResult<GuestQuizSession> {
   if (!isLocalStorageAvailable()) {
     return {
       success: false,
@@ -419,8 +452,9 @@ export function loadGuestSession(): StorageOperationResult<GuestQuizSession> {
     };
   }
 
+  const key = getQuizSessionStorageKey(userId);
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEYS.GUEST_SESSION);
+    const raw = window.localStorage.getItem(key);
     if (!raw) {
       return {
         success: true,
@@ -441,7 +475,7 @@ export function loadGuestSession(): StorageOperationResult<GuestQuizSession> {
       };
     }
 
-    const { session, recovered, unrecoverable, reason } = sanitizeAndRecoverSession(parsed);
+    const { session, recovered, unrecoverable, reason } = sanitizeAndRecoverSession(parsed, userId);
 
     if (unrecoverable || !session) {
       return {
@@ -454,10 +488,20 @@ export function loadGuestSession(): StorageOperationResult<GuestQuizSession> {
       };
     }
 
+    // Security check: if loading for a specific userId, verify it matches
+    if (userId && session.userId && session.userId !== userId) {
+      return {
+        success: false,
+        data: null,
+        error: 'Draf jawaban milik akun lain tidak dapat dipulihkan.',
+        isStorageAvailable: true,
+      };
+    }
+
     // If session was healed from corrupted/null fields, persist the clean version
     if (recovered) {
       try {
-        window.localStorage.setItem(STORAGE_KEYS.GUEST_SESSION, JSON.stringify(session));
+        window.localStorage.setItem(key, JSON.stringify(session));
       } catch {
         // Non-blocking write error
       }
@@ -479,11 +523,20 @@ export function loadGuestSession(): StorageOperationResult<GuestQuizSession> {
 }
 
 /**
- * Persist active guest session to localStorage.
- * Crucial rule: Does not claim success if storage is denied or fails.
+ * Alias for loadQuizSession (backward-compatibility)
  */
-export function saveGuestSession(
-  session: GuestQuizSession
+export function loadGuestSession(userId?: string): StorageOperationResult<GuestQuizSession> {
+  return loadQuizSession(userId);
+}
+
+/**
+ * Persist active quiz session to localStorage safely.
+ * When session.userId or userId is provided, persists to the user-namespaced storage key.
+ * Otherwise, persists to the guest storage key.
+ */
+export function saveQuizSession(
+  session: GuestQuizSession,
+  userId?: string
 ): StorageOperationResult<boolean> {
   if (!isLocalStorageAvailable()) {
     return {
@@ -494,11 +547,18 @@ export function saveGuestSession(
     };
   }
 
+  const effectiveUserId = userId || session.userId;
+  const key = getQuizSessionStorageKey(effectiveUserId);
+
   try {
+    const sessionToSave: GuestQuizSession = {
+      ...session,
+      userId: effectiveUserId,
+    };
     // Defensively sanitize before serializing to guarantee no null or array answers
-    const cleanSession = sanitizeGuestSession(session);
+    const cleanSession = sanitizeGuestSession(sessionToSave, effectiveUserId);
     const payload = JSON.stringify(cleanSession);
-    window.localStorage.setItem(STORAGE_KEYS.GUEST_SESSION, payload);
+    window.localStorage.setItem(key, payload);
     return {
       success: true,
       data: true,
@@ -512,6 +572,16 @@ export function saveGuestSession(
       isStorageAvailable: true,
     };
   }
+}
+
+/**
+ * Alias for saveQuizSession (backward-compatibility)
+ */
+export function saveGuestSession(
+  session: GuestQuizSession,
+  userId?: string
+): StorageOperationResult<boolean> {
+  return saveQuizSession(session, userId);
 }
 
 /**
@@ -608,6 +678,95 @@ export function loadQuizHistory(): StorageOperationResult<QuizAttemptHistoryItem
   }
 }
 
+export const MOCK_QUOTA_HISTORY_KEY = '__test_mock_quota_history__';
+
+/**
+ * Check whether the simulated QuotaExceededError for history is enabled.
+ * Used exclusively for testing bug AD18-05 without filling device storage.
+ */
+export function isMockQuotaHistoryEnabled(): boolean {
+  try {
+    if (typeof window === 'undefined') return false;
+    return (
+      window.sessionStorage.getItem(MOCK_QUOTA_HISTORY_KEY) === 'true' ||
+      window.localStorage.getItem(MOCK_QUOTA_HISTORY_KEY) === 'true'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Set or unset the simulated QuotaExceededError for history.
+ */
+export function setMockQuotaHistorySimulation(enable: boolean): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (enable) {
+      window.sessionStorage.setItem(MOCK_QUOTA_HISTORY_KEY, 'true');
+    } else {
+      window.sessionStorage.removeItem(MOCK_QUOTA_HISTORY_KEY);
+      window.localStorage.removeItem(MOCK_QUOTA_HISTORY_KEY);
+    }
+  } catch {
+    // Ignore storage errors in test toggle
+  }
+}
+
+// Expose browser console helper for QA and manual simulation
+if (typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).__simulateHistoryQuotaError = (enable: boolean) => {
+    setMockQuotaHistorySimulation(enable);
+    if (enable) {
+      console.warn(
+        '🧪 [SIMULASI AD18-05] Simulasi QuotaExceededError pada persistHistory DIAKTIFKAN.\n' +
+        'Penyimpanan history sekarang akan gagal, sedangkan penyimpanan sesi aktif tetap berjalan normal.\n' +
+        'Untuk menonaktifkan, ketik di konsol: window.__simulateHistoryQuotaError(false)'
+      );
+    } else {
+      console.log(
+        '✅ [SIMULASI AD18-05] Simulasi QuotaExceededError DINONAKTIFKAN.\n' +
+        'Penyimpanan history kembali normal.'
+      );
+    }
+  };
+
+  (window as unknown as Record<string, unknown>).__seedCompletedQuizSession = (targetScore = 100) => {
+    try {
+      const now = new Date().toISOString();
+      const submittedAnswers: Record<string, SubmittedAnswer> = {};
+      soalHidrolisisGaram.forEach((q) => {
+        submittedAnswers[q.id] = {
+          questionId: q.id,
+          selectedOption: q.jawabanBenar,
+          isCorrect: true,
+          answeredAt: now,
+        };
+      });
+      const completedSession: GuestQuizSession = {
+        guestSessionId: generateUid('guest'),
+        attemptId: generateUid('att_m1_test'),
+        questionVersion: SOAL_VERSION,
+        draftAnswers: {},
+        submittedAnswers,
+        currentQuestionIndex: 9,
+        status: 'completed',
+        score: targetScore,
+        startedAt: now,
+        completedAt: now,
+      };
+      saveGuestSession(completedSession);
+      console.log(
+        `🧪 [SIMULASI AD18-05] Sesi kuis selesai berhasil di-seed (Skor: ${targetScore}, ID: ${completedSession.attemptId}).\n` +
+        'Silakan refresh halaman (F5) untuk melihat sesi kuis selesai aktif.'
+      );
+      return completedSession;
+    } catch (e) {
+      console.error('Gagal seed sesi kuis:', e);
+    }
+  };
+}
+
 /**
  * Save quiz history array to device storage.
  */
@@ -620,6 +779,16 @@ export function saveQuizHistory(
       data: false,
       error: 'Penyimpanan lokal tidak tersedia.',
       isStorageAvailable: false,
+    };
+  }
+
+  // AD18-05 Test Simulation: Simulate QuotaExceededError on history without filling storage
+  if (isMockQuotaHistoryEnabled()) {
+    return {
+      success: false,
+      data: false,
+      error: 'Gagal menyimpan riwayat karena penyimpanan penuh. Hasil ini belum tersimpan di riwayat.',
+      isStorageAvailable: true,
     };
   }
 
@@ -703,12 +872,14 @@ export function resetDraftForQuestion(
  */
 export function retakeQuizWithNewAttempt(
   currentSession: GuestQuizSession,
-  history: QuizAttemptHistoryItem[]
+  history: QuizAttemptHistoryItem[],
+  userId?: string
 ): {
   newSession: GuestQuizSession;
   updatedHistory: QuizAttemptHistoryItem[];
 } {
-  const safeSession = sanitizeGuestSession(currentSession);
+  const effectiveUserId = userId || currentSession.userId;
+  const safeSession = sanitizeGuestSession(currentSession, effectiveUserId);
   const updatedHistory = Array.isArray(history) ? [...history] : [];
 
   // If current session was completed, ensure it is archived in history
@@ -736,8 +907,8 @@ export function retakeQuizWithNewAttempt(
     }
   }
 
-  // Create a brand new session with a new attempt ID, preserving guest ID
-  const newSession = createNewGuestSession(safeSession.guestSessionId);
+  // Create a brand new session with a new attempt ID, preserving guest ID and userId
+  const newSession = createNewGuestSession(safeSession.guestSessionId, effectiveUserId);
 
   return {
     newSession,

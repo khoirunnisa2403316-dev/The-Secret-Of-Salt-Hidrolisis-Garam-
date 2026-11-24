@@ -21,12 +21,10 @@ import {
   getDoc,
   serverTimestamp,
 } from './firebase';
-import { migrateLocalGuestAttemptsToFirestore } from './firestoreQuizService';
 
 const STORAGE_KEYS = {
   ACTIVE_SESSION: 'chem_auth_session_token',
   AUTH_USERS: 'chem_registered_users_registry',
-  GUEST_HISTORY: 'secret_of_salt_guest_m1_history',
 };
 
 /**
@@ -205,32 +203,12 @@ export function setSession(user, rememberMe = true) {
     }
   }
 
-  // Link local guest quiz attempts
-  migrateGuestQuizAttempts(sessionData.user.id);
-
   return sessionData;
 }
 
 export function clearSession() {
   sessionStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
   localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
-}
-
-function migrateGuestQuizAttempts(userId) {
-  try {
-    const rawHistory = localStorage.getItem(STORAGE_KEYS.GUEST_HISTORY);
-    if (rawHistory) {
-      const history = JSON.parse(rawHistory);
-      if (Array.isArray(history)) {
-        const userHistoryKey = `chem_user_history_${userId}`;
-        const existing = JSON.parse(localStorage.getItem(userHistoryKey) || '[]');
-        const merged = [...history, ...existing];
-        localStorage.setItem(userHistoryKey, JSON.stringify(merged));
-      }
-    }
-  } catch (err) {
-    console.warn('Guest quiz migration notice:', err);
-  }
 }
 
 /**
@@ -279,9 +257,6 @@ export async function registerUser({ fullName, email, password, confirmPassword 
       };
 
       await setDoc(userDocRef, profileData, { merge: true });
-
-      // Migrate guest attempts to Firestore
-      await migrateLocalGuestAttemptsToFirestore(fbUser.uid);
 
       return setSession({
         uid: fbUser.uid,
@@ -372,9 +347,6 @@ export async function loginUser({ email, password, rememberMe = true }) {
               lastLoginAt: serverTimestamp(),
             }, { merge: true });
           }
-
-          // Migrate any pending guest quiz attempts to Firestore
-          await migrateLocalGuestAttemptsToFirestore(fbUser.uid);
         } catch (err) {
           console.warn('Firestore profile fetch notice:', err);
         }
