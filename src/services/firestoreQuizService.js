@@ -103,7 +103,10 @@ export async function fetchUserQuizHistoryFromFirestore(userId) {
       list.push(d.data());
     });
     return list;
-  } catch {
+  } catch (err) {
+    if (err?.code === 'permission-denied') {
+      return [];
+    }
     try {
       const attemptsRef = collection(db, 'quiz_attempts');
       const qFallback = query(attemptsRef, where('userId', '==', userId));
@@ -115,7 +118,9 @@ export async function fetchUserQuizHistoryFromFirestore(userId) {
       list.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
       return list;
     } catch (e) {
-      console.warn('Firestore quiz history fetch fallback failed:', e);
+      if (e?.code !== 'permission-denied') {
+        console.warn('Firestore quiz history fetch fallback notice:', e?.message || e);
+      }
       return [];
     }
   }

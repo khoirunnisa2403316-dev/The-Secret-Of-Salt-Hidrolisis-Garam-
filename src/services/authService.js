@@ -482,20 +482,28 @@ export async function loginWithGoogle() {
     // A. Periksa di Cloud Firestore (koleksi "users")
     if (db) {
       try {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('email', '==', cleanEmail));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const d = snap.docs[0];
-          matchedUser = { id: d.id, uid: fbUser.uid, ...d.data() };
+        // Cek langsung dokumen berdasarkan fbUser.uid terlebih dahulu (sesuai aturan keamanan Firestore)
+        const docSnap = await getDoc(doc(db, 'users', fbUser.uid));
+        if (docSnap.exists()) {
+          matchedUser = { id: docSnap.id, uid: fbUser.uid, ...docSnap.data() };
         } else {
-          const docSnap = await getDoc(doc(db, 'users', fbUser.uid));
-          if (docSnap.exists()) {
-            matchedUser = { id: docSnap.id, uid: fbUser.uid, ...docSnap.data() };
+          // Fallback pencarian dokumen via email jika diizinkan aturan keamanan
+          try {
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('email', '==', cleanEmail));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              const d = snap.docs[0];
+              matchedUser = { id: d.id, uid: fbUser.uid, ...d.data() };
+            }
+          } catch {
+            // Abaikan error query jika dibatasi aturan Firestore
           }
         }
       } catch (err) {
-        console.warn('Firestore database check notice:', err);
+        if (err?.code !== 'permission-denied') {
+          console.warn('Firestore database check notice:', err?.message || err);
+        }
       }
     }
 
@@ -556,7 +564,9 @@ export async function loginWithGoogle() {
         const userDocRef = doc(db, 'users', fbUser.uid);
         await setDoc(userDocRef, { ...userProfile, lastLoginAt: serverTimestamp() }, { merge: true });
       } catch (err) {
-        console.warn('Firestore lastLoginAt notice:', err);
+        if (err?.code !== 'permission-denied') {
+          console.warn('Firestore lastLoginAt notice:', err?.message || err);
+        }
       }
     }
 
