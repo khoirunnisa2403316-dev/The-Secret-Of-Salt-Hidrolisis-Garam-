@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AuthContext } from './useAuth';
-import GoogleAccountPickerModal from '../components/GoogleAccountPickerModal';
 import {
   getCurrentSession,
   loginUser,
@@ -26,10 +25,6 @@ export function AuthProvider({ children }) {
   const [session, setSessionState] = useState(() => getCurrentSession());
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
-  const [googlePickerState, setGooglePickerState] = useState({
-    isOpen: false,
-    resolver: null,
-  });
 
   // Real-time Firebase Authentication listener
   useEffect(() => {
@@ -119,58 +114,15 @@ export function AuthProvider({ children }) {
     setIsLoading(true);
     setAuthError(null);
     try {
-      if (isFirebaseConfigured() && auth) {
-        const newSession = await authLoginWithGoogle();
-        setSessionState(newSession);
-        return { success: true, user: newSession.user };
-      }
-
-      // Mode simulasi/lokal: Tampilkan dialog pemilih akun Google yang eksplisit
-      return await new Promise((resolve) => {
-        setGooglePickerState({
-          isOpen: true,
-          resolver: resolve,
-        });
-      });
+      const newSession = await authLoginWithGoogle();
+      setSessionState(newSession);
+      return { success: true, user: newSession.user };
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Masuk dengan Google gagal.';
       setAuthError(msg);
       return { success: false, error: msg };
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleSelectGoogleAccount = async (account) => {
-    const resolver = googlePickerState.resolver;
-    setGooglePickerState({ isOpen: false, resolver: null });
-    setIsLoading(true);
-    setAuthError(null);
-    try {
-      const newSession = await authLoginWithGoogle(account);
-      setSessionState(newSession);
-      if (resolver) {
-        resolver({ success: true, user: newSession.user });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gagal masuk dengan akun Google yang dipilih.';
-      setAuthError(msg);
-      if (resolver) {
-        resolver({ success: false, error: msg });
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCancelGooglePicker = () => {
-    const resolver = googlePickerState.resolver;
-    setGooglePickerState({ isOpen: false, resolver: null });
-    if (resolver) {
-      resolver({
-        success: false,
-        error: 'Proses masuk dengan Google dibatalkan oleh pengguna.',
-      });
     }
   };
 
@@ -232,16 +184,7 @@ export function AuthProvider({ children }) {
     isFirebaseConfigured: isFirebaseConfigured(),
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-      <GoogleAccountPickerModal
-        isOpen={googlePickerState.isOpen}
-        onSelectAccount={handleSelectGoogleAccount}
-        onCancel={handleCancelGooglePicker}
-      />
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export default AuthProvider;

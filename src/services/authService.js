@@ -19,6 +19,10 @@ import {
   doc,
   setDoc,
   getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
   serverTimestamp,
 } from './firebase';
 
@@ -433,92 +437,135 @@ export async function requestPasswordReset(email) {
 }
 
 /**
- * Sign in using Google Provider (Firebase Auth or graceful demo fallback)
+ * Sign in using Firebase Google Authentication
+ * Menjalankan autentikasi Google resmi melalui Firebase GoogleAuthProvider.
+ * Mengidentifikasi email Google yang dipilih, mencocokkannya dengan data pengguna
+ * di database untuk menentukan role (Guru atau Siswa), serta memvalidasi jika
+ * akun belum terdaftar di database.
  */
-export async function loginWithGoogle(chosenAccount = null) {
-  // 1. Live Firebase Google Auth Popup
-  if (isFirebaseConfigured() && auth) {
-    try {
-      // Pastikan sesi auth sebelumnya di-clear agar Google selalu menampilkan dialog pemilihan akun
-      if (auth.currentUser) {
-        try {
-          await signOut(auth);
-        } catch (e) {
-          console.warn('Pre-auth signOut notice:', e);
-        }
-      }
-
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, provider);
-      const fbUser = result.user;
-
-      const userRole = isTeacherEmail(fbUser.email) ? 'teacher' : 'student';
-      let userProfile = {
-        uid: fbUser.uid,
-        id: fbUser.uid,
-        email: fbUser.email,
-        fullName: fbUser.displayName || fbUser.email?.split('@')[0],
-        role: userRole,
-        classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI-MIPA-1',
-        schoolName: 'SMA Negeri 1 Pembelajaran',
-        authProvider: 'google',
-      };
-
-      if (db) {
-        try {
-          const userDocRef = doc(db, 'users', fbUser.uid);
-          const snap = await getDoc(userDocRef);
-          if (snap.exists()) {
-            const data = snap.data();
-            const storedRole = data?.role || userRole;
-            userProfile = { ...userProfile, ...data, role: storedRole };
-            await setDoc(userDocRef, { lastLoginAt: serverTimestamp(), role: storedRole }, { merge: true });
-          } else {
-            await setDoc(
-              userDocRef,
-              {
-                ...userProfile,
-                createdAt: serverTimestamp(),
-                lastLoginAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-          }
-        } catch (err) {
-          console.warn('Firestore profile write notice:', err);
-        }
-      }
-
-      return setSession(userProfile, true);
-    } catch (err) {
-      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
-        throw new Error('Proses masuk dengan Google dibatalkan oleh pengguna.');
-      } else if (err?.code === 'auth/popup-blocked') {
-        throw new Error('Jendela popup Google terblokir oleh browser. Izinkan pop-up untuk melanjutkan.');
-      }
-      throw new Error(translateFirebaseError(err));
-    }
+export async function loginWithGoogle() {
+  if (!isFirebaseConfigured() || !auth) {
+    throw new Error(
+      'Firebase Authentication belum terkonfigurasi. Pastikan variabel lingkungan Firebase (VITE_FIREBASE_API_KEY, dll.) telah diatur.'
+    );
   }
 
-  // 2. Local Fallback Engine (Pilihan Akun Pengguna Nyata)
-  if (chosenAccount) {
-    const cleanEmail = (chosenAccount.email || '').trim().toLowerCase();
-    const userRole = isTeacherEmail(cleanEmail) || chosenAccount.role === 'teacher' ? 'teacher' : 'student';
-    const profile = {
-      id: chosenAccount.id || `usr_google_${Date.now()}`,
-      uid: chosenAccount.uid || chosenAccount.id || `usr_google_${Date.now()}`,
-      email: chosenAccount.email,
-      fullName: chosenAccount.fullName || chosenAccount.displayName || chosenAccount.email?.split('@')[0],
-      role: userRole,
-      classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : (chosenAccount.classGrade || 'XI-MIPA-1'),
-      schoolName: chosenAccount.schoolName || 'SMA Negeri 1 Pembelajaran',
+  try {
+    // 1. Bersihkan status auth lama sebelum membuka popup agar Google selalu menampilkan pilihan akun
+    if (auth.currentUser) {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.warn('Pre-auth signOut notice:', e);
+      }
+    }
+
+    // 2. Tampilkan pemilihan akun Google melalui Firebase Google Authentication
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await signInWithPopup(auth, provider);
+    const fbUser = result.user;
+
+    if (!fbUser?.email) {
+      throw new Error('Akun Google tidak memiliki alamat email yang valid.');
+    }
+
+    const cleanEmail = fbUser.email.trim().toLowerCase();
+
+    // 3. Cocokkan email dengan data pengguna yang tersimpan di database
+    let matchedUser = null;
+
+    // A. Periksa di Cloud Firestore (koleksi "users")
+    if (db) {
+      try {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('email', '==', cleanEmail));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const d = snap.docs[0];
+          matchedUser = { id: d.id, uid: fbUser.uid, ...d.data() };
+        } else {
+          const docSnap = await getDoc(doc(db, 'users', fbUser.uid));
+          if (docSnap.exists()) {
+            matchedUser = { id: docSnap.id, uid: fbUser.uid, ...docSnap.data() };
+          }
+        }
+      } catch (err) {
+        console.warn('Firestore database check notice:', err);
+      }
+    }
+
+    // B. Periksa di data registry pengguna tersimpan (getUsersRegistry)
+    if (!matchedUser) {
+      const localUsers = getUsersRegistry();
+      const found = localUsers.find(
+        (u) => (u.email || '').trim().toLowerCase() === cleanEmail
+      );
+      if (found) {
+        matchedUser = found;
+      }
+    }
+
+    // C. Verifikasi identitas email institusi Guru resmi
+    if (!matchedUser && isTeacherEmail(cleanEmail)) {
+      matchedUser = {
+        id: fbUser.uid || 'usr_teacher_official',
+        email: cleanEmail,
+        fullName: fbUser.displayName || "Khoirun Nisa' Rakhma, S.Pd.",
+        role: 'teacher',
+        classGrade: 'XI-MIPA-1 & XI-MIPA-2',
+        schoolName: 'SMA Negeri 1 Pembelajaran',
+        nip: '2403316',
+      };
+    }
+
+    // 4. Jika email belum terdaftar di database, batalkan sesi dan beri tahu pengguna
+    if (!matchedUser) {
+      try {
+        await signOut(auth);
+      } catch {}
+
+      throw new Error(
+        `Akun Google (${fbUser.email}) belum terdaftar. Silakan buat akun baru terlebih dahulu atau gunakan email yang telah terdaftar.`
+      );
+    }
+
+    // 5. Tentukan role Guru atau Siswa dari data pengguna yang cocok di database
+    const isTeacher = isTeacherEmail(cleanEmail) || matchedUser.role === 'teacher';
+    const effectiveRole = isTeacher ? 'teacher' : 'student';
+
+    const userProfile = {
+      uid: fbUser.uid,
+      id: matchedUser.id || fbUser.uid,
+      email: fbUser.email,
+      fullName: matchedUser.fullName || fbUser.displayName || fbUser.email.split('@')[0],
+      role: effectiveRole,
+      classGrade: matchedUser.classGrade || (effectiveRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI-MIPA-1'),
+      schoolName: matchedUser.schoolName || 'SMA Negeri 1 Pembelajaran',
+      nip: matchedUser.nip || undefined,
       authProvider: 'google',
     };
-    return setSession(profile, true);
-  }
 
-  throw new Error('Tidak ada akun Google yang dipilih.');
+    // Update lastLoginAt di Firestore jika tersedia
+    if (db) {
+      try {
+        const userDocRef = doc(db, 'users', fbUser.uid);
+        await setDoc(userDocRef, { ...userProfile, lastLoginAt: serverTimestamp() }, { merge: true });
+      } catch (err) {
+        console.warn('Firestore lastLoginAt notice:', err);
+      }
+    }
+
+    // 6. Buat sesi untuk akun yang benar-benar dipilih dan cocok di database
+    return setSession(userProfile, true);
+  } catch (err) {
+    if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+      throw new Error('Proses masuk dengan Google dibatalkan oleh pengguna.');
+    } else if (err?.code === 'auth/popup-blocked') {
+      throw new Error('Jendela popup Google terblokir oleh browser. Izinkan pop-up untuk melanjutkan.');
+    }
+    throw new Error(translateFirebaseError(err));
+  }
 }
 
 /**
