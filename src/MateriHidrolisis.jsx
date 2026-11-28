@@ -395,7 +395,7 @@ export default function MateriHidrolisis() {
         </div>
 
         {/* 6 Sub-Navigation Tabs */}
-        <div className="materi-nav-tabs" role="tablist" aria-label="Tab Materi Hidrolisis">
+        <div className="materi-nav-tabs" id="materi-nav-tabs" role="tablist" aria-label="Tab Materi Hidrolisis">
           <button
             type="button"
             role="tab"

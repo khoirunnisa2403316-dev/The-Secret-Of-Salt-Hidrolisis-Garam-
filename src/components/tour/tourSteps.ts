@@ -9,6 +9,7 @@ export function startOnboardingTour() {
 export interface TourStep {
   id: string;
   target: string; // CSS Selector of the element to highlight
+  mobileTarget?: string; // Optional target selector on mobile screens
   title: string;
   stepBadge: string;
   icon: string;
@@ -21,78 +22,79 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'beranda',
     target: '#beranda-hero-content',
-    title: 'Selamat Datang di The Secret of Salt! 🧪',
+    title: 'Pusat Aktivitas Belajar Beranda 🏠',
     stepBadge: 'Langkah 1 dari 7',
     icon: '🏠',
     description:
-      'Media pembelajaran kimia interaktif SMA/MA Kelas XI Fase F. Di sini kamu akan mengungkap rahasia sifat larutan garam (asam, basa, atau netral) berdasarkan reaksi transfer proton ion dengan molekul air.',
-    tip: 'Amati fenomena rasa ingin tahu untuk memahami mengapa pupuk NH₄Cl bersifat asam, sedangkan garam dapur NaCl bersifat netral!',
+      'Selamat datang di The Secret of Salt! Halaman Beranda ini merupakan pusat aktivitas belajar kimia interaktifmu. Di sini kamu dapat mengakses seluruh bagian utama pembelajaran: fenomena rasa ingin tahu, 3 pilar materi prasyarat, simulasi laboratorium virtual, modul materi lengkap, kuis evaluasi formatif, hingga pemantauan progres belajarmu.',
+    tip: 'Mulailah dengan mengamati fenomena pemantik untuk memahami alasan ilmiah di balik perbedaan sifat asam, basa, atau netral dari berbagai larutan garam!',
     preferredPosition: 'bottom',
   },
   {
-    id: 'topik-prasyarat',
-    target: '#topik-prasyarat',
-    title: '3 Pilar Materi Prasyarat 📚',
+    id: 'search-bar',
+    target: '.search-input-wrapper',
+    title: 'Search Bar (Pencarian Materi) 🔍',
     stepBadge: 'Langkah 2 dari 7',
-    icon: '📖',
+    icon: '🔍',
     description:
-      'Kuasai 3 fondasi penting sebelum mempelajari hidrolisis: Stoikiometri (mol & pereaksi pembatas), Termokimia (pengaruh kalor pada Kw), dan Larutan Asam-Basa (pasangan konjugasi Bronsted-Lowry). Klik tiap kartu untuk membuka materi dan kuis ringkas.',
-    tip: 'Ingat bahwa nilai pH netral 7,00 secara khusus berlaku pada suhu standar 25°C!',
+      'Gunakan kolom pencarian "Cari konsep atau materi..." di bagian atas ini untuk mencari materi secara cepat berdasarkan kata kunci. Cukup ketik konsep yang ingin kamu pelajari, atau tekan tombol shortcut "/" pada keyboard untuk langsung mengaktifkan kolom pencarian. Hasil pencarian akan langsung muncul secara instan dan dapat diklik untuk menuju materi yang dicari.',
+    tip: 'Coba ketik kata kunci seperti "CH3COONa", "rumus pH", "garam asam", atau "tetapan hidrolisis" untuk langsung menuju ke materi terkait!',
     preferredPosition: 'bottom',
   },
   {
-    id: 'lab-interaktif',
-    target: '#lab-interaktif',
-    title: 'Laboratorium Virtual & Simulasi Cepat 🔬',
+    id: 'materi-pembelajaran',
+    target: '#materi-nav-tabs',
+    title: 'Menu Materi Pembelajaran 📚',
     stepBadge: 'Langkah 3 dari 7',
+    icon: '📚',
+    description:
+      'Di menu materi pembelajaran ini, kamu dapat mempelajari konsep hidrolisis garam secara mendalam dan menyeluruh. Bacalah dan pahami setiap bagian materi melalui navigasi tab yang tersedia: Pengertian & Konsep Dasar, 4 Jenis Garam, Tiga Level Johnstone (makroskopis, submikroskopis, simbolik), Rumus Kh & pH Lengkap, Kalkulator Interaktif, hingga Penerapan Nyata & Pembasmi Miskonsepsi.',
+    tip: 'Gunakan tombol tab navigasi di atas kartu materi untuk berpindah antarbagian materi secara mudah, terstruktur, dan berurutan.',
+    preferredPosition: 'bottom',
+  },
+  {
+    id: 'laboratorium-virtual',
+    target: '#lab-interaktif',
+    title: 'Laboratorium Virtual & Simulasi 🧪',
+    stepBadge: 'Langkah 4 dari 7',
     icon: '🧪',
     description:
-      'Uji 4 jenis larutan garam: NaCl, NH₄Cl, CH₃COONa, dan NH₄CN dalam gelas kimia interaktif. Kamu dapat mengamati warna larutan, indikator lakmus universal, dan nilai pH digital secara langsung.',
-    tip: 'Gunakan tombol pengalih suhu 25°C dan 60°C untuk membuktikan bagaimana temperatur mempengaruhi kesetimbangan ion air (Kw).',
-    preferredPosition: 'bottom',
-  },
-  {
-    id: 'eksplorasi-partikel',
-    target: '#beaker-stage-container',
-    title: 'Eksplorasi Partikel Submikroskopis ⚗️',
-    stepBadge: 'Langkah 4 dari 7',
-    icon: '🔬',
-    description:
-      'Pelajari interaksi tingkat mikroskopis: ion manakah yang bereaksi dengan air dan mendonorkan atau menerima proton membentuk ion H₃O⁺ atau OH⁻, lengkap dengan persamaan reaksi kesetimbangannya.',
-    tip: 'Reaksi hidrolisis merupakan kesetimbangan transfer proton dinamis, bukan sekadar pelarutan garam biasa.',
+      'Simulasi laboratorium virtual memungkinkan kamu menguji sifat larutan garam secara interaktif dan visual. Pilih sampel garam (NaCl, NH₄Cl, CH₃COONa, atau NH₄CN) untuk mengamati reaksi kimia nyata: perubahan warna cairan, pergerakan partikel ionik mikroskopis, indikator lakmus universal, serta pembacaan nilai pH digital.',
+    tip: 'Gunakan tombol pengatur suhu 25°C dan 60°C untuk membuktikan bagaimana temperatur mempengaruhi kesetimbangan ion air (Kw) dan sifat keasaman larutan!',
     preferredPosition: 'top',
   },
   {
     id: 'kuis-pg',
     target: '#kuis-pg-area',
-    title: 'Kuis Formatif Pilihan Ganda 🎯',
+    title: 'Kuis Pilihan Ganda (10 Soal) 📝',
     stepBadge: 'Langkah 5 dari 7',
     icon: '📝',
     description:
-      'Uji pemahamanmu melalui 10 butir soal pilihan ganda interaktif. Fitur ini dilengkapi navigasi nomor soal, pelacak waktu pengerjaan, dan pembahasan saintifik mendalam bebas miskonsepsi.',
-    tip: 'Pilihan jawaban langsung dibekukan setelah dikirim agar kamu dapat mengevaluasi pemahaman konsep secara murni.',
+      'Uji pemahaman konsepmu melalui 10 butir soal pilihan ganda interaktif. Pilih opsi jawaban (A, B, C, D, atau E) yang kamu anggap benar lalu klik tombol "Kirim Jawaban". Kamu dapat berpindah nomor soal secara bebas menggunakan panel nomor 1–10. Setelah menyelesaikan kuis, kamu dapat melihat skor perolehan serta pembahasan saintifik lengkap.',
+    tip: 'Gunakan panel nomor untuk meninjau kembali soal yang belum terjawab sebelum menyelesaikan kuis pilihan ganda.',
     preferredPosition: 'top',
   },
   {
     id: 'kuis-esai',
     target: '#quiz-phase-tabs',
-    title: 'Kuis Esai Berpikir Kritis (HOTS) ✍️',
+    title: 'Kuis Esai Berpikir Kritis ✍️',
     stepBadge: 'Langkah 6 dari 7',
     icon: '✍️',
     description:
-      'Setelah menyelesaikan soal pilihan ganda, lanjutkan ke 5 soal esai analitis. Tuliskan jawaban, persamaan reaksi berimbang, dan penalaran kimiamu pada kolom teks yang disediakan, lalu kirimkan untuk dinilai oleh guru pengampu.',
-    tip: 'Pastikan semua butir soal esai sudah terisi sebelum menekan tombol "Kirim Semua Jawaban"!',
+      'Kuis Esai merupakan kelanjutan langsung setelah kamu menyelesaikan 10 soal pilihan ganda (dapat diakses melalui tombol "Lanjut ke Quiz Esai" atau tab Bagian 2). Di sini, kamu harus menuliskan jawaban analitis, penalaran kimia, dan persamaan reaksi hidrolisis berimbang pada kolom textarea yang disediakan berdasarkan pemahaman materimu. Setelah selesai mengisi seluruh soal, tekan tombol "Kirim Semua Jawaban".',
+    tip: 'Jawaban esai dan hasil pilihan ganda disimpan dalam satu sesi evaluasi yang sama, lalu diperiksa dan dinilai langsung oleh guru melalui Dashboard Guru.',
     preferredPosition: 'bottom',
   },
   {
-    id: 'progress-belajar',
+    id: 'progres-belajar',
     target: '#sidebar-user-area',
-    title: 'Pantau Perkembangan Belajarmu 📊',
+    mobileTarget: '#mobile-top-bar',
+    title: 'Pemantauan Progres Belajar 📊',
     stepBadge: 'Langkah 7 dari 7',
     icon: '👤',
     description:
-      'Akses Dashboard Siswa untuk melihat riwayat nilai, statistik evaluasi, dan sinkronisasi Cloud Firestore. Masuk menggunakan akun Google agar seluruh pencapaian belajarmu tersimpan secara permanen.',
-    tip: 'Kamu bisa mengulang tur panduan ini kapan pun dengan menekan tombol "Tur Fitur" pada menu navigasi samping!',
-    preferredPosition: 'bottom',
+      'Pantau perkembangan belajar dan hasil evaluasimu secara berkala melalui Dashboard Siswa. Di sini kamu dapat melihat profil siswa, ringkasan progres capaian materi, riwayat nilai kuis pilihan ganda, serta status penilaian esai dari guru pengampu.',
+    tip: 'Masuk (login) dengan akun Google atau akun siswa kamu agar seluruh progres belajar dan riwayat evaluasi tersimpan permanen di cloud!',
+    preferredPosition: 'top',
   },
 ];

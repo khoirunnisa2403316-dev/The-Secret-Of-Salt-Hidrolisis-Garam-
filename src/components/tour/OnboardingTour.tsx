@@ -85,7 +85,12 @@ export default function OnboardingTour() {
   const updatePositions = useCallback(() => {
     if (!isOpen || !currentStep) return;
 
-    const targetEl = document.querySelector(currentStep.target);
+    const targetSelector =
+      window.innerWidth < 1024 && currentStep.mobileTarget
+        ? currentStep.mobileTarget
+        : currentStep.target;
+
+    const targetEl = document.querySelector(targetSelector);
     if (!targetEl) {
       // If target is temporarily not in DOM, fallback gracefully to center
       setSpotlightRect(null);
@@ -97,10 +102,19 @@ export default function OnboardingTour() {
     }
 
     const rect = targetEl.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      setSpotlightRect(null);
+      setModalPosition({
+        top: Math.max(20, (window.innerHeight - 380) / 2),
+        left: Math.max(16, (window.innerWidth - 440) / 2),
+      });
+      return;
+    }
+
     const padding = 10;
     const spotTop = Math.max(0, rect.top - padding);
     const spotLeft = Math.max(0, rect.left - padding);
-    const spotWidth = rect.width + padding * 2;
+    const spotWidth = Math.min(window.innerWidth - spotLeft, rect.width + padding * 2);
     const spotHeight = rect.height + padding * 2;
 
     setSpotlightRect({
@@ -123,7 +137,7 @@ export default function OnboardingTour() {
 
     // Horizontal centering relative to target, clamped to screen edges
     const idealLeft = spotLeft + (spotWidth / 2) - (modalWidth / 2);
-    const clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - modalWidth - 16));
+    let clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - modalWidth - 16));
 
     // Vertical placement
     let idealTop = spotTop + spotHeight + 16; // Default to below target
@@ -135,8 +149,18 @@ export default function OnboardingTour() {
     } else if (spaceBelow < modalHeight && spaceAbove >= modalHeight) {
       idealTop = spotTop - modalHeight - 16;
     } else if (spaceBelow < modalHeight && spaceAbove < modalHeight) {
-      // If both top and bottom are tight, place near bottom or center of screen
-      idealTop = Math.max(16, window.innerHeight - modalHeight - 20);
+      // Both top and bottom space are constrained: check side placement to avoid covering target
+      const spaceRight = window.innerWidth - (spotLeft + spotWidth + 24);
+      const spaceLeft = spotLeft - 24;
+      if (spaceRight >= modalWidth) {
+        clampedLeft = spotLeft + spotWidth + 16;
+        idealTop = Math.max(16, Math.min(spotTop, window.innerHeight - modalHeight - 16));
+      } else if (spaceLeft >= modalWidth) {
+        clampedLeft = spotLeft - modalWidth - 16;
+        idealTop = Math.max(16, Math.min(spotTop, window.innerHeight - modalHeight - 16));
+      } else {
+        idealTop = Math.max(16, window.innerHeight - modalHeight - 20);
+      }
     }
 
     const clampedTop = Math.max(16, Math.min(idealTop, window.innerHeight - modalHeight - 16));
@@ -151,11 +175,24 @@ export default function OnboardingTour() {
   useEffect(() => {
     if (!isOpen || !currentStep) return;
 
-    const targetEl = document.querySelector(currentStep.target);
+    const targetSelector =
+      window.innerWidth < 1024 && currentStep.mobileTarget
+        ? currentStep.mobileTarget
+        : currentStep.target;
+
+    const targetEl = document.querySelector(targetSelector);
     if (targetEl) {
+      const isMobile = window.innerWidth <= 640;
+      // On mobile, the modal is anchored at the bottom, so align target near top with block: 'start'
+      const scrollBlock = isMobile
+        ? 'start'
+        : currentStep.preferredPosition === 'top'
+        ? 'end'
+        : 'start';
+
       targetEl.scrollIntoView({
         behavior: 'smooth',
-        block: 'center',
+        block: scrollBlock,
         inline: 'nearest',
       });
     }

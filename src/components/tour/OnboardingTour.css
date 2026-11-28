@@ -338,8 +338,11 @@
     right: 16px !important;
     width: auto !important;
     max-width: none !important;
+    max-height: 58vh;
+    overflow-y: auto;
     border-radius: 20px;
-    padding: 18px;
+    padding: 16px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
   }
 
   .tour-title {
