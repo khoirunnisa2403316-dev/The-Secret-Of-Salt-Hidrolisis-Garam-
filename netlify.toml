@@ -1,0 +1,18 @@
+# Netlify Configuration for Single Page Application & Firebase Auth COOP
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+# SPA Fallback: All routes redirect to index.html with 200 HTTP status
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security and Cross-Origin Headers for Firebase Auth Popups
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "unsafe-none"
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"

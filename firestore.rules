@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isTeacher() {
+      return isAuthenticated() && request.auth.token.email == 'khoirun.nisa.2403316@students.um.ac.id';
+    }
+
+    // 1. User Profiles Collection
+    match /users/{userId} {
+      // User can read and update their own profile; teachers can read student profiles
+      allow read: if isOwner(userId) || isTeacher();
+      allow write: if isOwner(userId);
+    }
+
+    // 2. Quiz Attempts Collection
+    match /quiz_attempts/{attemptId} {
+      // Any authenticated student can save their own quiz attempts
+      allow create, update: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid || isOwner(request.resource.data.userId)
+      );
+      // Student can read their own attempts; Teacher can read all student submissions
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isTeacher()
+      );
+    }
+
+    // 3. Fallback for authenticated users in development / study mode
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

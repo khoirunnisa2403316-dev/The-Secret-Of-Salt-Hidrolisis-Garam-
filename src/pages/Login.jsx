@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
 import InputField from '../components/InputField';
@@ -14,7 +14,7 @@ import { useAuth } from '../context/useAuth';
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginWithGoogle, switchDemoRole, isLoading, authError, clearError, isFirebaseConfigured } = useAuth();
+  const { user, isAuthenticated, login, loginWithGoogle, switchDemoRole, isLoading, authError, clearError, isFirebaseConfigured } = useAuth();
 
   // Form states
   const [formData, setFormData] = useState({
@@ -27,6 +27,13 @@ export default function Login() {
   const [successMessage, setSuccessMessage] = useState(
     location.state?.registeredMessage || ''
   );
+
+  // Jika sudah terautentikasi (misal kembali dari pengalihan Google Auth), arahkan ke dashboard
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(user.role === 'teacher' ? '/teacher' : '/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
   // Akses pengujian multi-peran untuk pengembang (hanya aktif jika parameter ?dev=true atau ?demo=true disertakan pada URL)
   const isDevMode = new URLSearchParams(location.search).get('dev') === 'true' ||
@@ -89,7 +96,10 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     clearError();
     const res = await loginWithGoogle();
-    if (res.success) {
+    if (res?.redirecting) {
+      return;
+    }
+    if (res?.success) {
       setSuccessMessage('Berhasil masuk dengan akun Google! Mengarahkan...');
       setTimeout(() => {
         navigate(res.user?.role === 'teacher' ? '/teacher' : '/dashboard', { replace: true });

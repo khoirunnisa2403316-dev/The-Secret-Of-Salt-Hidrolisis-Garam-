@@ -1,0 +1,4 @@
+/*
+  Cross-Origin-Opener-Policy: unsafe-none
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff

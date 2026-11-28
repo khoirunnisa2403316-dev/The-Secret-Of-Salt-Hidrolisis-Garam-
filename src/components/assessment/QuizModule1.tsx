@@ -11,7 +11,10 @@ import type {
   GuestQuizSession,
   QuizAttemptHistoryItem,
   SubmittedAnswer,
+  EssayGradingResult,
 } from '../../types/quiz';
+import { QuizEsaiSection } from './QuizEsaiSection';
+import { soalEsaiHidrolisisGaram } from '../../data/soalEsaiHidrolisisGaram';
 import {
   loadQuizSession,
   saveQuizSession,
@@ -129,6 +132,7 @@ export default function QuizModule1() {
 
   const [hasExported, setHasExported] = useState(false);
   const [isUnarchivedRetakeConfirmOpen, setIsUnarchivedRetakeConfirmOpen] = useState(false);
+  const [showStudentEssayReview, setShowStudentEssayReview] = useState(false);
 
   // Synchronously adjust state during render when account changes (standard React pattern - AD18-06)
   if (prevUserId !== currentUserId) {
@@ -309,16 +313,68 @@ export default function QuizModule1() {
     const updatedDrafts = { ...currentDrafts };
     delete updatedDrafts[currentQuestion.id];
 
-    const newlyAnsweredCount = Object.keys(updatedSubmitted).length;
-    const isCompleted = newlyAnsweredCount === totalQuestions;
+    persistSession({
+      ...session,
+      submittedAnswers: updatedSubmitted,
+      draftAnswers: updatedDrafts,
+    });
+  }, [
+    currentDraft,
+    currentQuestion.id,
+    currentQuestion.jawabanBenar,
+    isFrozen,
+    persistSession,
+    session,
+  ]);
 
-    let finalScore = session.score;
-    let completedAt = session.completedAt;
+  // Handle Essay Answer Change
+  const handleEssayAnswerChange = useCallback(
+    (questionId: string, text: string) => {
+      const updatedAnswers = {
+        ...(session.essayAnswers || {}),
+        [questionId]: text,
+      };
+      persistSession({
+        ...session,
+        essayAnswers: updatedAnswers,
+      });
+    },
+    [persistSession, session]
+  );
 
-    if (isCompleted) {
-      const finalCorrect = Object.values(updatedSubmitted).filter((a) => a.isCorrect).length;
-      finalScore = Math.round((finalCorrect / totalQuestions) * 100);
-      completedAt = new Date().toISOString();
+  // Submit all evaluations (PG + Essay)
+  const [isSubmittingAll, setIsSubmittingAll] = useState(false);
+  const handleFinalSubmitAll = useCallback(() => {
+    setIsSubmittingAll(true);
+    try {
+      const currentSubmitted = session.submittedAnswers || {};
+      const finalCorrect = Object.values(currentSubmitted).filter((a) => a?.isCorrect).length;
+      const finalScore = Math.round((finalCorrect / totalQuestions) * 100);
+      const completedAt = new Date().toISOString();
+
+      const essayAnswers = session.essayAnswers || {};
+      const essayGrading: EssayGradingResult = session.essayGrading || {
+        status: 'pending',
+        totalEssayScore: 0,
+        questionScores: {},
+      };
+
+      const finalCompositeScore =
+        essayGrading.status === 'graded'
+          ? Math.round(0.5 * finalScore + 0.5 * essayGrading.totalEssayScore)
+          : null;
+
+      const completedSession: GuestQuizSession = {
+        ...session,
+        status: 'completed',
+        score: finalScore,
+        completedAt,
+        essayAnswers,
+        essayGrading,
+        finalCompositeScore,
+      };
+
+      persistSession(completedSession);
 
       // Automatically archive into history
       const newHistoryItem: QuizAttemptHistoryItem = {
@@ -328,10 +384,14 @@ export default function QuizModule1() {
         totalQuestions,
         correctCount: finalCorrect,
         score: finalScore,
+        essayAnswers,
+        essayGrading,
+        finalCompositeScore,
         startedAt: session.startedAt,
         completedAt,
-        answers: updatedSubmitted,
+        answers: currentSubmitted,
         questionSnapshot: soalHidrolisisGaram,
+        essaySnapshot: soalEsaiHidrolisisGaram,
       };
 
       const existingIdx = history.findIndex((h) => h.attemptId === session.attemptId);
@@ -350,15 +410,21 @@ export default function QuizModule1() {
           classGrade: user.classGrade || 'XI-MIPA-1',
           schoolName: user.schoolName || 'SMA Negeri 1 Pembelajaran',
           activityName: 'Kuis Formatif Modul 1: Konsep Dasar Hidrolisis Garam',
-          attemptType: updatedHistoryList.length > 1 ? `Percobaan Ke-${updatedHistoryList.length} (Remedial)` : 'Percobaan Ke-1 (Utama)',
+          attemptType:
+            updatedHistoryList.length > 1
+              ? `Percobaan Ke-${updatedHistoryList.length} (Remedial)`
+              : 'Percobaan Ke-1 (Utama)',
           questionSnapshot: soalHidrolisisGaram,
+          essaySnapshot: soalEsaiHidrolisisGaram,
         };
 
         // 1. Save to user's personal storage
         try {
           const userHistKey = `chem_user_history_${user.id}`;
           const prevUserHist = JSON.parse(localStorage.getItem(userHistKey) || '[]');
-          const deduplicated = prevUserHist.filter((p: { attemptId: string }) => p.attemptId !== enrichedItem.attemptId);
+          const deduplicated = prevUserHist.filter(
+            (p: { attemptId: string }) => p.attemptId !== enrichedItem.attemptId
+          );
           localStorage.setItem(userHistKey, JSON.stringify([enrichedItem, ...deduplicated]));
         } catch {
           // ignore
@@ -375,28 +441,10 @@ export default function QuizModule1() {
           enqueueAccountAttempt(user.id, enrichedItem);
         }
       }
+    } finally {
+      setIsSubmittingAll(false);
     }
-
-    persistSession({
-      ...session,
-      submittedAnswers: updatedSubmitted,
-      draftAnswers: updatedDrafts,
-      status: isCompleted ? 'completed' : 'in_progress',
-      score: finalScore,
-      completedAt,
-    });
-  }, [
-    currentDraft,
-    currentQuestion.id,
-    currentQuestion.jawabanBenar,
-    history,
-    isFrozen,
-    persistHistory,
-    persistSession,
-    session,
-    totalQuestions,
-    user,
-  ]);
+  }, [history, persistHistory, persistSession, session, totalQuestions, user]);
 
   // Reset active draft only
   const handleResetActiveDraft = () => {
@@ -532,8 +580,9 @@ export default function QuizModule1() {
   // Keyboard navigation & controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is inside an input, textarea, or a modal is open
+      // Ignore if in essay phase, user is inside an input, textarea, or a modal is open
       if (
+        session.currentPhase === 'essay' ||
         isClearConfirmOpen ||
         isUnarchivedRetakeConfirmOpen ||
         document.activeElement?.tagName === 'INPUT' ||
@@ -580,6 +629,7 @@ export default function QuizModule1() {
     currentDraft,
     isClearConfirmOpen,
     isUnarchivedRetakeConfirmOpen,
+    session.currentPhase,
     totalQuestions,
     handleSelectQuestion,
     handlePickOption,
@@ -826,255 +876,417 @@ export default function QuizModule1() {
           )}
         </div>
 
-        {/* Question Palette & Progress Bar */}
-        <div className="quiz-nav-card">
-          <div className="nav-header-row">
-            <div className="progress-info-group">
-              <span className="progress-text">
-                Progres: {answeredCount} dari {totalQuestions} Soal Terjawab
-              </span>
-              <div
-                className="progress-bar-track"
-                role="progressbar"
-                aria-valuenow={answeredCount}
-                aria-valuemin={0}
-                aria-valuemax={totalQuestions}
-              >
-                <div
-                  className="progress-bar-fill"
-                  style={{ width: `${(answeredCount / totalQuestions) * 100}%` }}
-                />
+        {/* Phase Navigation Tabs */}
+        {session.status !== 'completed' && (
+          <div
+            id="quiz-phase-tabs"
+            style={{
+              display: 'flex',
+              gap: '0.75rem',
+              marginBottom: '1.25rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => persistSession({ ...session, currentPhase: 'pg' })}
+              style={{
+                padding: '0.65rem 1.25rem',
+                borderRadius: '0.875rem',
+                border: session.currentPhase !== 'essay' ? '2px solid #0F766E' : '1px solid #CBD5E1',
+                backgroundColor: session.currentPhase !== 'essay' ? '#F0FDFA' : '#FFFFFF',
+                color: session.currentPhase !== 'essay' ? '#0F766E' : '#475569',
+                fontWeight: 800,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                boxShadow: session.currentPhase !== 'essay' ? '0 2px 8px rgba(15, 118, 110, 0.15)' : 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span>📝</span>
+              <span>Bagian 1: Pilihan Ganda (10 Soal)</span>
+              {isAllAnswered && <span style={{ color: '#16A34A', fontWeight: 900 }}>✓ Selesai</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => persistSession({ ...session, currentPhase: 'essay' })}
+              style={{
+                padding: '0.65rem 1.25rem',
+                borderRadius: '0.875rem',
+                border: session.currentPhase === 'essay' ? '2px solid #0F766E' : '1px solid #CBD5E1',
+                backgroundColor: session.currentPhase === 'essay' ? '#F0FDFA' : '#FFFFFF',
+                color: session.currentPhase === 'essay' ? '#0F766E' : '#475569',
+                fontWeight: 800,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                boxShadow: session.currentPhase === 'essay' ? '0 2px 8px rgba(15, 118, 110, 0.15)' : 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span>✍️</span>
+              <span>Bagian 2: Quiz Esai (5 Soal)</span>
+              {Object.keys(session.essayAnswers || {}).length > 0 && (
+                <span style={{ color: '#0D9488', fontWeight: 900 }}>
+                  ({Object.keys(session.essayAnswers || {}).length}/5 Terisi)
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Conditional View: Quiz Esai Section vs Pilihan Ganda Workspace */}
+        {session.status !== 'completed' && session.currentPhase === 'essay' ? (
+          <QuizEsaiSection
+            answers={session.essayAnswers || {}}
+            onAnswerChange={handleEssayAnswerChange}
+            onSubmitAll={handleFinalSubmitAll}
+            onBackToPg={() => persistSession({ ...session, currentPhase: 'pg' })}
+            isSubmitting={isSubmittingAll}
+          />
+        ) : session.status !== 'completed' ? (
+          <>
+            {/* Question Palette & Progress Bar */}
+            <div className="quiz-nav-card" id="kuis-pg-area">
+              <div className="nav-header-row">
+                <div className="progress-info-group">
+                  <span className="progress-text">
+                    Progres: {answeredCount} dari {totalQuestions} Soal Terjawab
+                  </span>
+                  <div
+                    className="progress-bar-track"
+                    role="progressbar"
+                    aria-valuenow={answeredCount}
+                    aria-valuemin={0}
+                    aria-valuemax={totalQuestions}
+                  >
+                    <div
+                      className="progress-bar-fill"
+                      style={{ width: `${(answeredCount / totalQuestions) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="nav-legend" aria-hidden="true">
+                  <span className="legend-item">
+                    <span className="legend-dot dot-correct"></span> Benar
+                  </span>
+                  <span className="legend-item">
+                    <span className="legend-dot dot-wrong"></span> Salah
+                  </span>
+                  <span className="legend-item">
+                    <span className="legend-dot dot-draft"></span> Draf Dipilih
+                  </span>
+                  <span className="legend-item">
+                    <span className="legend-dot dot-empty"></span> Belum
+                  </span>
+                </div>
+              </div>
+
+              {/* Palette Grid Buttons 1-10 */}
+              <div className="palette-grid" role="group" aria-label="Daftar Nomor Soal Kuis">
+                {soalHidrolisisGaram.map((q, idx) => {
+                  const ans = safeSubmittedAnswers[q.id];
+                  const isCurrent = idx === currentIndex;
+                  const hasDraft = !ans && Boolean(safeDraftAnswers[q.id]);
+
+                  let statusClass = '';
+                  if (ans) {
+                    statusClass = ans.isCorrect ? 'btn-correct' : 'btn-wrong';
+                  } else if (hasDraft) {
+                    statusClass = 'btn-draft';
+                  }
+
+                  return (
+                    <button
+                      key={q.id}
+                      type="button"
+                      className={`palette-btn ${statusClass} ${isCurrent ? 'active' : ''}`}
+                      onClick={() => handleSelectQuestion(idx)}
+                      aria-label={`Nomor Soal ${idx + 1}${
+                        ans ? (ans.isCorrect ? ' (Benar)' : ' (Salah)') : hasDraft ? ' (Draf)' : ''
+                      }`}
+                      aria-current={isCurrent ? 'true' : undefined}
+                    >
+                      <span>{idx + 1}</span>
+                      {ans && (
+                        <span
+                          className="palette-status-pill"
+                          style={{
+                            backgroundColor: ans.isCorrect
+                              ? 'var(--color-fresh-teal)'
+                              : 'var(--color-coral)',
+                          }}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="nav-legend" aria-hidden="true">
-              <span className="legend-item">
-                <span className="legend-dot dot-correct"></span> Benar
-              </span>
-              <span className="legend-item">
-                <span className="legend-dot dot-wrong"></span> Salah
-              </span>
-              <span className="legend-item">
-                <span className="legend-dot dot-draft"></span> Draf Dipilih
-              </span>
-              <span className="legend-item">
-                <span className="legend-dot dot-empty"></span> Belum
-              </span>
-            </div>
-          </div>
-
-          {/* Palette Grid Buttons 1-10 */}
-          <div className="palette-grid" role="group" aria-label="Daftar Nomor Soal Kuis">
-            {soalHidrolisisGaram.map((q, idx) => {
-              const ans = safeSubmittedAnswers[q.id];
-              const isCurrent = idx === currentIndex;
-              const hasDraft = !ans && Boolean(safeDraftAnswers[q.id]);
-
-              let statusClass = '';
-              if (ans) {
-                statusClass = ans.isCorrect ? 'btn-correct' : 'btn-wrong';
-              } else if (hasDraft) {
-                statusClass = 'btn-draft';
-              }
-
-              return (
-                <button
-                  key={q.id}
-                  type="button"
-                  className={`palette-btn ${statusClass} ${isCurrent ? 'active' : ''}`}
-                  onClick={() => handleSelectQuestion(idx)}
-                  aria-label={`Nomor Soal ${idx + 1}${
-                    ans ? (ans.isCorrect ? ' (Benar)' : ' (Salah)') : hasDraft ? ' (Draf)' : ''
-                  }`}
-                  aria-current={isCurrent ? 'true' : undefined}
-                >
-                  <span>{idx + 1}</span>
-                  {ans && (
-                    <span
-                      className="palette-status-pill"
-                      style={{
-                        backgroundColor: ans.isCorrect
-                          ? 'var(--color-fresh-teal)'
-                          : 'var(--color-coral)',
-                      }}
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Active Question Workspace */}
-        <article className="question-workspace-card" aria-labelledby="question-item-title">
-          {/* Top Bar: Number & Concept Badge */}
-          <div className="question-top-bar">
-            <span className="q-number-badge" id="question-item-title">
-              <span>Soal Nomor {currentIndex + 1}</span>
-              <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>
-                / {totalQuestions}
-              </span>
-            </span>
-
-            <span className="q-concept-tag" title="Fokus Konsep Kimia">
-              <span>🔬</span>
-              <span>{currentQuestion.konsep.replace(/-/g, ' ')}</span>
-            </span>
-          </div>
-
-          {/* Question Text */}
-          <div className="question-text-area">
-            <p className="question-text">{currentQuestion.pertanyaan}</p>
-          </div>
-
-          {/* Options Radiogroup */}
-          <div
-            className="options-list"
-            role="radiogroup"
-            aria-labelledby="question-item-title"
-            aria-disabled={isFrozen}
-          >
-            {currentQuestion.opsi.map((opt) => {
-              const isSelected = effectiveOption === opt.id;
-              const isCorrectKey = isFrozen && opt.id === currentQuestion.jawabanBenar;
-              const isWrongChoice = isFrozen && isSelected && !isCorrectKey;
-
-              let optionClass = '';
-              if (isFrozen) {
-                optionClass += ' frozen';
-                if (isCorrectKey) optionClass += ' option-correct-key';
-                if (isWrongChoice) optionClass += ' option-wrong-choice';
-              } else if (isSelected) {
-                optionClass += ' selected';
-              }
-
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={`option-item ${optionClass}`}
-                  onClick={() => handlePickOption(opt.id)}
-                  disabled={isFrozen}
-                  role="radio"
-                  aria-checked={isSelected}
-                  aria-label={`Opsi ${opt.id}: ${opt.teks}`}
-                >
-                  <span className="option-key-badge" aria-hidden="true">
-                    {opt.id}
+            {/* Active Question Workspace */}
+            <article className="question-workspace-card" aria-labelledby="question-item-title">
+              {/* Top Bar: Number & Concept Badge */}
+              <div className="question-top-bar">
+                <span className="q-number-badge" id="question-item-title">
+                  <span>Soal Nomor {currentIndex + 1}</span>
+                  <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>
+                    / {totalQuestions}
                   </span>
-                  <span className="option-text">{opt.teks}</span>
+                </span>
 
-                  {isFrozen && isCorrectKey && (
-                    <span className="option-frozen-tag tag-correct" aria-label="Kunci Jawaban Benar">
-                      ✓ Kunci Benar
-                    </span>
-                  )}
-                  {isFrozen && isWrongChoice && (
-                    <span className="option-frozen-tag tag-wrong" aria-label="Pilihan Anda Salah">
-                      ✕ Pilihan Anda
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                <span className="q-concept-tag" title="Fokus Konsep Kimia">
+                  <span>🔬</span>
+                  <span>{currentQuestion.konsep.replace(/-/g, ' ')}</span>
+                </span>
+              </div>
 
-          {/* Bottom Action Controls */}
-          <div className="question-actions-bar">
-            <div className="nav-btn-group">
-              <button
-                type="button"
-                className="btn-nav-step"
-                onClick={() => handleSelectQuestion(currentIndex - 1)}
-                disabled={currentIndex === 0}
-                aria-label="Ke Soal Sebelumnya"
+              {/* Question Text */}
+              <div className="question-text-area">
+                <p className="question-text">{currentQuestion.pertanyaan}</p>
+              </div>
+
+              {/* Options Radiogroup */}
+              <div
+                className="options-list"
+                role="radiogroup"
+                aria-labelledby="question-item-title"
+                aria-disabled={isFrozen}
               >
-                ← Sebelumnya
-              </button>
-              <button
-                type="button"
-                className="btn-nav-step"
-                onClick={() => handleSelectQuestion(currentIndex + 1)}
-                disabled={currentIndex === totalQuestions - 1}
-                aria-label="Ke Soal Selanjutnya"
-              >
-                Selanjutnya →
-              </button>
-            </div>
+                {currentQuestion.opsi.map((opt) => {
+                  const isSelected = effectiveOption === opt.id;
+                  const isCorrectKey = isFrozen && opt.id === currentQuestion.jawabanBenar;
+                  const isWrongChoice = isFrozen && isSelected && !isCorrectKey;
 
-            <div className="submission-btn-group">
-              {/* Reset Draft Button */}
-              {!isFrozen && (
-                <button
-                  type="button"
-                  className="btn-reset-draft"
-                  onClick={handleResetActiveDraft}
-                  disabled={!currentDraft}
-                  title="Kosongkan pilihan draf pada butir soal ini"
+                  let optionClass = '';
+                  if (isFrozen) {
+                    optionClass += ' frozen';
+                    if (isCorrectKey) optionClass += ' option-correct-key';
+                    if (isWrongChoice) optionClass += ' option-wrong-choice';
+                  } else if (isSelected) {
+                    optionClass += ' selected';
+                  }
+
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`option-item ${optionClass}`}
+                      onClick={() => handlePickOption(opt.id)}
+                      disabled={isFrozen}
+                      role="radio"
+                      aria-checked={isSelected}
+                      aria-label={`Opsi ${opt.id}: ${opt.teks}`}
+                    >
+                      <span className="option-key-badge" aria-hidden="true">
+                        {opt.id}
+                      </span>
+                      <span className="option-text">{opt.teks}</span>
+
+                      {isFrozen && isCorrectKey && (
+                        <span className="option-frozen-tag tag-correct" aria-label="Kunci Jawaban Benar">
+                          ✓ Kunci Benar
+                        </span>
+                      )}
+                      {isFrozen && isWrongChoice && (
+                        <span className="option-frozen-tag tag-wrong" aria-label="Pilihan Anda Salah">
+                          ✕ Pilihan Anda
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Action Controls */}
+              <div className="question-actions-bar">
+                <div className="nav-btn-group">
+                  <button
+                    type="button"
+                    className="btn-nav-step"
+                    onClick={() => handleSelectQuestion(currentIndex - 1)}
+                    disabled={currentIndex === 0}
+                    aria-label="Ke Soal Sebelumnya"
+                  >
+                    ← Sebelumnya
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-nav-step"
+                    onClick={() => handleSelectQuestion(currentIndex + 1)}
+                    disabled={currentIndex === totalQuestions - 1}
+                    aria-label="Ke Soal Selanjutnya"
+                  >
+                    Selanjutnya →
+                  </button>
+                </div>
+
+                <div className="submission-btn-group">
+                  {/* Reset Draft Button */}
+                  {!isFrozen && (
+                    <button
+                      type="button"
+                      className="btn-reset-draft"
+                      onClick={handleResetActiveDraft}
+                      disabled={!currentDraft}
+                      title="Kosongkan pilihan draf pada butir soal ini"
+                    >
+                      Reset Draf
+                    </button>
+                  )}
+
+                  {/* Submit & Freeze Button: DISABLED until an option is picked */}
+                  <button
+                    type="button"
+                    className="btn-submit-answer"
+                    onClick={handleSubmitAnswer}
+                    disabled={isFrozen || !currentDraft}
+                    title={
+                      isFrozen
+                        ? 'Jawaban soal ini telah dikirim dan dibekukan'
+                        : !currentDraft
+                        ? 'Pilih salah satu jawaban terlebih dahulu sebelum mengirim'
+                        : 'Kirim dan periksa kebenaran jawaban'
+                    }
+                  >
+                    {isFrozen ? '✓ Jawaban Terkirim' : 'Kirim Jawaban'}
+                  </button>
+
+                  {/* Tombol Lanjut ke Quiz Esai setelah soal nomor 10 dikerjakan atau seluruh soal dijawab */}
+                  {(isFrozen && (currentIndex === totalQuestions - 1 || isAllAnswered)) && (
+                    <button
+                      type="button"
+                      className="btn-next-essay-phase"
+                      onClick={() => {
+                        persistSession({
+                          ...session,
+                          currentPhase: 'essay',
+                        });
+                      }}
+                      style={{
+                        backgroundColor: '#0F766E',
+                        color: '#FFFFFF',
+                        fontWeight: 800,
+                        borderRadius: '0.75rem',
+                        padding: '0.65rem 1.25rem',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)',
+                      }}
+                      title="Lanjutkan ke bagian Quiz Esai"
+                    >
+                      <span>Lanjut ke Quiz Esai</span>
+                      <span>✍️ →</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Instant Feedback & Pembahasan Panel (Frozen Diagnostic Output) */}
+              {isFrozen && submittedAnswer && (
+                <div
+                  className={`feedback-panel ${
+                    submittedAnswer.isCorrect ? 'feedback-correct' : 'feedback-wrong'
+                  }`}
+                  role="region"
+                  aria-live="polite"
+                  aria-label="Umpan Balik dan Pembahasan Soal"
                 >
-                  Reset Draf
-                </button>
+                  <div className="feedback-banner-header">
+                    <span className="feedback-title-text">
+                      {submittedAnswer.isCorrect ? (
+                        <>
+                          <span>🎉</span>
+                          <span>Jawaban Anda Benar!</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>⚠️</span>
+                          <span>
+                            Jawaban Belum Tepat (Kunci Jawaban: {currentQuestion.jawabanBenar})
+                          </span>
+                        </>
+                      )}
+                    </span>
+                    <span className="feedback-frozen-badge">Jawaban Terkunci</span>
+                  </div>
+
+                  <div className="feedback-body">
+                    <h4>Pembahasan Saintifik:</h4>
+                    <p>{currentQuestion.pembahasan}</p>
+                  </div>
+                </div>
               )}
 
-              {/* Submit & Freeze Button: DISABLED until an option is picked */}
-              <button
-                type="button"
-                className="btn-submit-answer"
-                onClick={handleSubmitAnswer}
-                disabled={isFrozen || !currentDraft}
-                title={
-                  isFrozen
-                    ? 'Jawaban soal ini telah dikirim dan dibekukan'
-                    : !currentDraft
-                    ? 'Pilih salah satu jawaban terlebih dahulu sebelum mengirim'
-                    : 'Kirim dan periksa kebenaran jawaban'
-                }
-              >
-                {isFrozen ? '✓ Jawaban Terkirim' : 'Kirim Jawaban'}
-              </button>
-            </div>
-          </div>
+              {/* Transition Banner to Essay after Question 10 or all PG answered */}
+              {(isFrozen && (currentIndex === totalQuestions - 1 || isAllAnswered)) && (
+                <div
+                  style={{
+                    marginTop: '1.25rem',
+                    padding: '1.25rem 1.5rem',
+                    backgroundColor: '#F0FDFA',
+                    border: '2px solid #0D9488',
+                    borderRadius: '1rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                  }}
+                >
+                  <div>
+                    <h4 style={{ margin: 0, color: '#134E4A', fontSize: '1.05rem', fontWeight: 800 }}>
+                      🎉 {isAllAnswered ? 'Seluruh 10 Soal Pilihan Ganda Selesai!' : 'Soal No. 10 Selesai Dijawab!'}
+                    </h4>
+                    <p style={{ margin: '0.25rem 0 0 0', color: '#0F766E', fontSize: '0.875rem' }}>
+                      Lanjutkan ke bagian Quiz Esai untuk melengkapi evaluasi kompetensi kimia hidrolisis garam.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      persistSession({
+                        ...session,
+                        currentPhase: 'essay',
+                      });
+                    }}
+                    style={{
+                      backgroundColor: '#0F766E',
+                      color: '#FFFFFF',
+                      fontWeight: 800,
+                      padding: '0.75rem 1.5rem',
+                      borderRadius: '0.75rem',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.95rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      boxShadow: '0 4px 14px rgba(15, 118, 110, 0.3)',
+                    }}
+                  >
+                    <span>Lanjut ke Quiz Esai</span>
+                    <span>✍️ →</span>
+                  </button>
+                </div>
+              )}
+            </article>
+          </>
+        ) : null}
 
-          {/* Instant Feedback & Pembahasan Panel (Frozen Diagnostic Output) */}
-          {isFrozen && submittedAnswer && (
-            <div
-              className={`feedback-panel ${
-                submittedAnswer.isCorrect ? 'feedback-correct' : 'feedback-wrong'
-              }`}
-              role="region"
-              aria-live="polite"
-              aria-label="Umpan Balik dan Pembahasan Soal"
-            >
-              <div className="feedback-banner-header">
-                <span className="feedback-title-text">
-                  {submittedAnswer.isCorrect ? (
-                    <>
-                      <span>🎉</span>
-                      <span>Jawaban Anda Benar!</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>⚠️</span>
-                      <span>
-                        Jawaban Belum Tepat (Kunci Jawaban: {currentQuestion.jawabanBenar})
-                      </span>
-                    </>
-                  )}
-                </span>
-                <span className="feedback-frozen-badge">Jawaban Terkunci</span>
-              </div>
-
-              <div className="feedback-body">
-                <h4>Pembahasan Saintifik:</h4>
-                <p>{currentQuestion.pembahasan}</p>
-              </div>
-            </div>
-          )}
-        </article>
-
-        {/* Completion Summary Card (Shown when all 10 questions are answered) */}
-        {isAllAnswered && session.score !== null && (
+        {/* Completion Summary Card (Shown when quiz evaluation is completed) */}
+        {session.status === 'completed' && session.score !== null && (
           <div className="quiz-summary-card" role="region" aria-label="Hasil Akhir Kuis">
             <div className="summary-score-circle">
               <span className="score-number">{session.score}</span>
@@ -1083,8 +1295,8 @@ export default function QuizModule1() {
 
             <h3 className="summary-title">
               {session.score >= 75
-                ? 'Luar Biasa! Kompetensi Modul 1 Tuntas 🎉'
-                : 'Kuis Selesai! Tetap Semangat Belajar 💡'}
+                ? 'Luar Biasa! Evaluasi Pembelajaran Selesai 🎉'
+                : 'Evaluasi Selesai! Tetap Semangat Belajar 💡'}
             </h3>
 
             <p className="summary-text">
@@ -1098,20 +1310,300 @@ export default function QuizModule1() {
                 <div className="stat-box-val" style={{ color: 'var(--color-fresh-teal)' }}>
                   {correctCount}
                 </div>
-                <div className="stat-box-label">Butir Benar</div>
+                <div className="stat-box-label">Butir Benar (PG)</div>
               </div>
               <div className="stat-box">
                 <div className="stat-box-val" style={{ color: 'var(--color-coral)' }}>
                   {totalQuestions - correctCount}
                 </div>
-                <div className="stat-box-label">Butir Salah</div>
+                <div className="stat-box-label">Butir Salah (PG)</div>
               </div>
               <div className="stat-box">
                 <div className="stat-box-val" style={{ color: 'var(--color-deep-navy)' }}>
                   {session.score}%
                 </div>
-                <div className="stat-box-label">Akurasi</div>
+                <div className="stat-box-label">Akurasi PG</div>
               </div>
+            </div>
+
+            {/* Bagian Evaluasi Esai & Nilai Akhir */}
+            <div
+              style={{
+                marginTop: '1.5rem',
+                marginBottom: '1.5rem',
+                padding: '1.25rem',
+                borderRadius: '1rem',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #CBD5E1',
+                textAlign: 'left',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                <h4
+                  style={{
+                    margin: 0,
+                    fontSize: '1rem',
+                    fontWeight: 800,
+                    color: '#1E293B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <span>✍️</span>
+                  <span>Evaluasi Bagian 2: Quiz Esai</span>
+                </h4>
+                {session.essayGrading?.status === 'graded' ? (
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      color: '#16A34A',
+                      backgroundColor: '#DCFCE7',
+                      padding: '0.25rem 0.65rem',
+                      borderRadius: '0.5rem',
+                    }}
+                  >
+                    ✓ Selesai Dinilai oleh {session.essayGrading.gradedBy || 'Guru'}
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      color: '#D97706',
+                      backgroundColor: '#FEF3C7',
+                      padding: '0.25rem 0.65rem',
+                      borderRadius: '0.5rem',
+                    }}
+                  >
+                    ⏳ Menunggu Penilaian Guru
+                  </span>
+                )}
+              </div>
+
+              {session.essayGrading?.status === 'graded' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div
+                      style={{
+                        padding: '0.75rem 1rem',
+                        backgroundColor: '#FFFFFF',
+                        borderRadius: '0.75rem',
+                        border: '1px solid #E2E8F0',
+                        flex: 1,
+                        minWidth: '140px',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block' }}>
+                        Skor Esai (Maks 100)
+                      </span>
+                      <strong style={{ fontSize: '1.35rem', color: '#0F766E' }}>
+                        {session.essayGrading.totalEssayScore}
+                      </strong>
+                      <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}> / 100</span>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: '0.75rem 1rem',
+                        backgroundColor: '#F0FDF4',
+                        borderRadius: '0.75rem',
+                        border: '1px solid #86EFAC',
+                        flex: 1,
+                        minWidth: '140px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          color: '#166534',
+                          display: 'block',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Nilai Akhir Terpadu (50% PG + 50% Esai)
+                      </span>
+                      <strong style={{ fontSize: '1.35rem', color: '#15803D' }}>
+                        {session.finalCompositeScore ??
+                          Math.round(
+                            0.5 * (session.score || 0) + 0.5 * session.essayGrading.totalEssayScore
+                          )}
+                      </strong>
+                      <span style={{ fontSize: '0.75rem', color: '#166534' }}> / 100</span>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: '0.75rem',
+                      color: '#475569',
+                      backgroundColor: '#FFFFFF',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '0.5rem',
+                      border: '1px solid #E2E8F0',
+                    }}
+                  >
+                    <strong>Formula Perhitungan:</strong> Nilai Akhir = (0,5 × Skor PG:{' '}
+                    {session.score}) + (0,5 × Skor Esai: {session.essayGrading.totalEssayScore}) ={' '}
+                    <strong>
+                      {session.finalCompositeScore ??
+                        Math.round(
+                          0.5 * (session.score || 0) + 0.5 * session.essayGrading.totalEssayScore
+                        )}
+                    </strong>
+                  </div>
+
+                  {session.essayGrading.feedback && (
+                    <div
+                      style={{
+                        padding: '0.75rem 1rem',
+                        backgroundColor: '#FFFFFF',
+                        borderRadius: '0.75rem',
+                        border: '1px solid #E2E8F0',
+                      }}
+                    >
+                      <strong
+                        style={{
+                          fontSize: '0.8rem',
+                          color: '#334155',
+                          display: 'block',
+                          marginBottom: '0.25rem',
+                        }}
+                      >
+                        💬 Catatan & Umpan Balik Guru:
+                      </strong>
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#475569', lineHeight: 1.5 }}>
+                        {session.essayGrading.feedback}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    backgroundColor: '#FFFBEB',
+                    borderRadius: '0.75rem',
+                    border: '1px solid #FDE68A',
+                    fontSize: '0.85rem',
+                    color: '#92400E',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <p style={{ margin: 0 }}>
+                    5 butir jawaban esai Anda telah tersimpan dan terkirim ke sistem. Guru akan
+                    memeriksa jawaban Anda berdasarkan rubrik saintifik. Nilai akhir gabungan (Bobot
+                    50% Pilihan Ganda + 50% Esai) akan otomatis ditampilkan setelah proses penilaian
+                    selesai.
+                  </p>
+                </div>
+              )}
+
+              {/* Toggle to view student's submitted essay answers */}
+              {session.essayAnswers && Object.keys(session.essayAnswers).length > 0 && (
+                <div style={{ marginTop: '0.85rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowStudentEssayReview(!showStudentEssayReview)}
+                    style={{
+                      padding: '0.45rem 0.9rem',
+                      borderRadius: '0.5rem',
+                      border: '1px solid #CBD5E1',
+                      backgroundColor: '#FFFFFF',
+                      color: '#0F766E',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {showStudentEssayReview
+                      ? '▲ Sembunyikan Lembar Jawaban Esai'
+                      : '▼ Lihat Lembar Jawaban Esai yang Dikirim'}
+                  </button>
+
+                  {showStudentEssayReview && (
+                    <div
+                      style={{
+                        marginTop: '0.75rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.75rem',
+                      }}
+                    >
+                      {soalEsaiHidrolisisGaram.map((q, idx) => (
+                        <div
+                          key={q.id}
+                          style={{
+                            padding: '0.75rem',
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: '0.5rem',
+                            border: '1px solid #E2E8F0',
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              color: '#0F766E',
+                            }}
+                          >
+                            Soal {idx + 1}: {q.judul}
+                          </span>
+                          <p
+                            style={{
+                              fontSize: '0.8rem',
+                              color: '#334155',
+                              margin: '0.25rem 0',
+                            }}
+                          >
+                            {q.pertanyaan}
+                          </p>
+                          <div
+                            style={{
+                              marginTop: '0.5rem',
+                              padding: '0.5rem',
+                              backgroundColor: '#F8FAFC',
+                              borderRadius: '0.35rem',
+                              fontSize: '0.8rem',
+                              color: '#1E293B',
+                              whiteSpace: 'pre-wrap',
+                            }}
+                          >
+                            <strong>Jawaban Anda:</strong>
+                            <div style={{ marginTop: '0.25rem' }}>
+                              {session.essayAnswers?.[q.id] || '(Kosong)'}
+                            </div>
+                          </div>
+                          {session.essayGrading?.questionScores?.[q.id] && (
+                            <div
+                              style={{
+                                marginTop: '0.35rem',
+                                fontSize: '0.75rem',
+                                color: '#16A34A',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Nilai: {session.essayGrading.questionScores[q.id].score} / 20 poin
+                              {session.essayGrading.questionScores[q.id].feedback &&
+                                ` • Catatan: ${session.essayGrading.questionScores[q.id].feedback}`}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {archiveError && (
@@ -1196,34 +1688,80 @@ export default function QuizModule1() {
                       <tr>
                         <th>Percobaan ID</th>
                         <th>Waktu Selesai</th>
-                        <th>Jumlah Benar</th>
-                        <th>Skor Akhir</th>
-                        <th>Versi</th>
+                        <th>Skor PG</th>
+                        <th>Status Esai</th>
+                        <th>Nilai Akhir</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {history.map((item) => (
-                        <tr key={item.attemptId}>
-                          <td>
-                            <code>{item.attemptId.slice(0, 16)}</code>
-                          </td>
-                          <td>{new Date(item.completedAt).toLocaleString('id-ID')}</td>
-                          <td>
-                            {item.correctCount} / {item.totalQuestions}
-                          </td>
-                          <td>
-                            <strong
-                              style={{
-                                color:
-                                  item.score >= 75 ? 'var(--color-fresh-teal)' : 'var(--color-coral)',
-                              }}
-                            >
-                              {item.score}
-                            </strong>
-                          </td>
-                          <td>v{item.questionVersion}</td>
-                        </tr>
-                      ))}
+                      {history.map((item) => {
+                        const hasEssay = Boolean(item.essayAnswers && Object.keys(item.essayAnswers).length > 0);
+                        const isGraded = item.essayGrading?.status === 'graded';
+                        const composite = item.finalCompositeScore ?? (isGraded && item.essayGrading ? Math.round(0.5 * item.score + 0.5 * item.essayGrading.totalEssayScore) : null);
+
+                        return (
+                          <tr key={item.attemptId}>
+                            <td>
+                              <code>{item.attemptId.slice(0, 16)}</code>
+                            </td>
+                            <td>{new Date(item.completedAt).toLocaleString('id-ID')}</td>
+                            <td>
+                              <strong
+                                style={{
+                                  color:
+                                    item.score >= 75 ? 'var(--color-fresh-teal)' : 'var(--color-coral)',
+                                }}
+                              >
+                                {item.score}
+                              </strong>
+                              <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                                {' '}
+                                ({item.correctCount}/{item.totalQuestions})
+                              </span>
+                            </td>
+                            <td>
+                              {!hasEssay ? (
+                                <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Hanya PG</span>
+                              ) : isGraded && item.essayGrading ? (
+                                <span
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 800,
+                                    color: '#16A34A',
+                                    backgroundColor: '#DCFCE7',
+                                    padding: '0.2rem 0.5rem',
+                                    borderRadius: '0.35rem',
+                                  }}
+                                >
+                                  Dinilai ({item.essayGrading.totalEssayScore}/100)
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 800,
+                                    color: '#D97706',
+                                    backgroundColor: '#FEF3C7',
+                                    padding: '0.2rem 0.5rem',
+                                    borderRadius: '0.35rem',
+                                  }}
+                                >
+                                  ⏳ Menunggu
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              {composite !== null ? (
+                                <strong style={{ color: composite >= 75 ? '#16A34A' : '#DC2626' }}>
+                                  {composite}
+                                </strong>
+                              ) : (
+                                <span style={{ color: '#64748B' }}>{item.score} (PG)</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './context/useAuth';
 import { useFocusTrap } from './hooks/useFocusTrap';
+import { startOnboardingTour } from './components/tour/tourSteps';
 import './Navbar.css';
 
 /**
@@ -284,6 +285,20 @@ export default function Navbar({ onStartClick }) {
                 <span>Panduan Belajar</span>
               </button>
 
+              {/* Tombol Tur Fitur Interaktif */}
+              <button
+                type="button"
+                className="sidebar-util-btn"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  startOnboardingTour();
+                }}
+                title="Mulai Tur Panduan Fitur Interaktif"
+              >
+                <span style={{ fontSize: '1.05rem' }}>🧭</span>
+                <span>Tur Fitur</span>
+              </button>
+
               {/* Tombol Alih Mode Ramah Mata */}
               <button
                 type="button"
@@ -310,7 +325,7 @@ export default function Navbar({ onStartClick }) {
         </div>
 
         {/* C. Bagian Bawah: Akun Pengguna / Autentikasi */}
-        <div className="sidebar-bottom-block">
+        <div className="sidebar-bottom-block" id="sidebar-user-area">
           <span className="sidebar-section-title">Akun Belajar</span>
           {isAuthenticated ? (
             <div className="sidebar-user-card">

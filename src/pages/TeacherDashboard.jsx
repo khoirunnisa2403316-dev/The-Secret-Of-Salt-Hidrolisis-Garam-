@@ -6,8 +6,10 @@ import atomMolecule from '../assets/images/atom-molecule.svg';
 import {
   fetchTeacherClassSubmissions,
   calculateItemAnalysis,
+  saveTeacherEssayGrading,
 } from '../services/firestoreQuizService';
 import { getQuestionsForAttempt } from '../data/soalHidrolisisGaram';
+import { soalEsaiHidrolisisGaram } from '../data/soalEsaiHidrolisisGaram';
 import './TeacherDashboard.css';
 
 /**
@@ -30,8 +32,115 @@ export default function TeacherDashboard() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Single Attempt Inspection Modal
+  // Single Attempt Inspection Modal States
   const [inspectingAttempt, setInspectingAttempt] = useState(null);
+  const [modalTab, setModalTab] = useState('essay'); // 'essay' | 'pg'
+  const [gradingScores, setGradingScores] = useState({});
+  const [gradingFeedbacks, setGradingFeedbacks] = useState({});
+  const [generalFeedback, setGeneralFeedback] = useState('');
+  const [savingGrade, setSavingGrade] = useState(false);
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState(null);
+
+  // Open modal and initialize grading form states
+  const handleOpenInspectModal = useCallback((sub) => {
+    setInspectingAttempt(sub);
+    const hasEssay = Boolean(
+      sub.essayAnswers && Object.keys(sub.essayAnswers).length > 0
+    );
+    setModalTab(hasEssay ? 'essay' : 'pg');
+
+    const initialScores = {};
+    const initialFeedbacks = {};
+    soalEsaiHidrolisisGaram.forEach((q) => {
+      const existingScoreObj = sub.essayGrading?.questionScores?.[q.id];
+      initialScores[q.id] =
+        typeof existingScoreObj?.score === 'number' ? existingScoreObj.score : 0;
+      initialFeedbacks[q.id] = existingScoreObj?.feedback || '';
+    });
+    setGradingScores(initialScores);
+    setGradingFeedbacks(initialFeedbacks);
+    setGeneralFeedback(sub.essayGrading?.feedback || '');
+    setSaveSuccessNotice(null);
+  }, []);
+
+  const handleScoreChange = (qId, val) => {
+    const num = Math.max(0, Math.min(20, Math.round(Number(val) || 0)));
+    setGradingScores((prev) => ({
+      ...prev,
+      [qId]: num,
+    }));
+  };
+
+  const handleQuestionFeedbackChange = (qId, val) => {
+    setGradingFeedbacks((prev) => ({
+      ...prev,
+      [qId]: val,
+    }));
+  };
+
+  const handleSaveGrading = async () => {
+    if (!inspectingAttempt) return;
+    setSavingGrade(true);
+    try {
+      const totalEssayScore = Object.values(gradingScores).reduce(
+        (acc, val) => acc + (Number(val) || 0),
+        0
+      );
+      const pgScore = inspectingAttempt.score || 0;
+      const finalCompositeScore = Math.round(0.5 * pgScore + 0.5 * totalEssayScore);
+
+      const questionScores = {};
+      for (const [qId, sc] of Object.entries(gradingScores)) {
+        questionScores[qId] = {
+          score: sc,
+          feedback: gradingFeedbacks[qId] || '',
+        };
+      }
+
+      const prevHistory = inspectingAttempt.essayGrading?.history || [];
+      const newEntry = {
+        gradedAt: new Date().toISOString(),
+        gradedBy: user?.fullName || 'Ibu Guru',
+        totalEssayScore,
+        questionScores,
+        feedback: generalFeedback,
+      };
+
+      const payload = {
+        totalEssayScore,
+        questionScores,
+        feedback: generalFeedback,
+        finalCompositeScore,
+        history: [...prevHistory, newEntry],
+      };
+
+      const res = await saveTeacherEssayGrading(
+        inspectingAttempt.attemptId,
+        inspectingAttempt.userId,
+        payload,
+        user?.fullName || 'Ibu Guru'
+      );
+
+      if (res.success) {
+        const updatedAttempt = {
+          ...inspectingAttempt,
+          essayGrading: res.gradingRecord,
+          finalCompositeScore,
+        };
+        setInspectingAttempt(updatedAttempt);
+        setSubmissions((prev) =>
+          prev.map((sub) => (sub.attemptId === updatedAttempt.attemptId ? updatedAttempt : sub))
+        );
+        setSaveSuccessNotice('✓ Nilai dan umpan balik esai berhasil disimpan!');
+        setTimeout(() => setSaveSuccessNotice(null), 4000);
+      }
+    } catch (err) {
+      console.error('Error saving teacher grading:', err);
+      alert('Gagal menyimpan penilaian: ' + err.message);
+    } finally {
+      setSavingGrade(false);
+    }
+  };
 
   // W3C ARIA focus trap for Inspection Modal (AD18-08)
   const inspectModalRef = useFocusTrap({
@@ -397,12 +506,12 @@ export default function TeacherDashboard() {
                     <tr>
                       <th>Alias / Siswa</th>
                       <th>Kelas</th>
-                      <th>Aktivitas</th>
                       <th>Jenis Percobaan</th>
-                      <th>Versi Soal</th>
-                      <th>Skor</th>
+                      <th>Skor PG</th>
+                      <th>Status Esai</th>
+                      <th>Nilai Akhir</th>
                       <th>Waktu Server / Diterima</th>
-                      <th style={{ textAlign: 'center' }}>Rincian Jawaban</th>
+                      <th style={{ textAlign: 'center' }}>Aksi Evaluasi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -418,6 +527,19 @@ export default function TeacherDashboard() {
                             minute: '2-digit',
                           })
                         : '-';
+
+                      const hasEssay = Boolean(
+                        sub.essayAnswers && Object.keys(sub.essayAnswers).length > 0
+                      );
+                      const isGraded = sub.essayGrading?.status === 'graded';
+                      const composite =
+                        typeof sub.finalCompositeScore === 'number'
+                          ? sub.finalCompositeScore
+                          : isGraded && sub.essayGrading
+                          ? Math.round(
+                              0.5 * (sub.score || 0) + 0.5 * (sub.essayGrading.totalEssayScore || 0)
+                            )
+                          : null;
 
                       return (
                         <tr key={sub.attemptId}>
@@ -442,11 +564,6 @@ export default function TeacherDashboard() {
                             </span>
                           </td>
                           <td>
-                            <span style={{ fontSize: '0.825rem' }}>
-                              {sub.activityName || 'Kuis Formatif Modul 1'}
-                            </span>
-                          </td>
-                          <td>
                             <span
                               style={{
                                 display: 'inline-block',
@@ -454,7 +571,9 @@ export default function TeacherDashboard() {
                                 borderRadius: '0.35rem',
                                 fontSize: '0.725rem',
                                 fontWeight: '700',
-                                backgroundColor: sub.attemptType?.includes('Remedial') ? '#FEF3C7' : '#F1F5F9',
+                                backgroundColor: sub.attemptType?.includes('Remedial')
+                                  ? '#FEF3C7'
+                                  : '#F1F5F9',
                                 color: sub.attemptType?.includes('Remedial') ? '#B45309' : '#475569',
                               }}
                             >
@@ -462,14 +581,58 @@ export default function TeacherDashboard() {
                             </span>
                           </td>
                           <td>
-                            <span style={{ fontFamily: 'monospace', fontWeight: '700' }}>
-                              v{sub.questionVersion || '1.0.0'}
-                            </span>
-                          </td>
-                          <td>
                             <span className={`score-badge ${scoreClass}`}>
                               {sub.score} / 100
                             </span>
+                          </td>
+                          <td>
+                            {!hasEssay ? (
+                              <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 600 }}>
+                                Hanya PG
+                              </span>
+                            ) : isGraded && sub.essayGrading ? (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  color: '#16A34A',
+                                  backgroundColor: '#DCFCE7',
+                                  padding: '0.2rem 0.55rem',
+                                  borderRadius: '0.35rem',
+                                }}
+                              >
+                                ✓ Dinilai ({sub.essayGrading.totalEssayScore}/100)
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  color: '#D97706',
+                                  backgroundColor: '#FEF3C7',
+                                  padding: '0.2rem 0.55rem',
+                                  borderRadius: '0.35rem',
+                                }}
+                              >
+                                ⏳ Perlu Dinilai
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            {composite !== null ? (
+                              <strong
+                                style={{
+                                  fontSize: '0.9rem',
+                                  color: composite >= 75 ? '#16A34A' : '#DC2626',
+                                }}
+                              >
+                                {composite}
+                              </strong>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>-</span>
+                            )}
                           </td>
                           <td>
                             <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
@@ -480,10 +643,16 @@ export default function TeacherDashboard() {
                             <button
                               type="button"
                               className="btn-detail-action"
-                              onClick={() => setInspectingAttempt(sub)}
-                              title="Lihat lembar jawaban asli dan pembahasan per butir"
+                              onClick={() => handleOpenInspectModal(sub)}
+                              title="Periksa lembar jawaban, berikan nilai esai, dan umpan balik"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                padding: '0.4rem 0.75rem',
+                              }}
                             >
-                              Detail Jawaban
+                              <span>{hasEssay ? '✏️ Periksa & Nilai' : '🔍 Detail PG'}</span>
                             </button>
                           </td>
                         </tr>
@@ -647,129 +816,500 @@ export default function TeacherDashboard() {
         )}
       </main>
 
-      {/* 6. Inspection Modal (Rincian Satu Percobaan Siswa) */}
-      {inspectingAttempt && (
-        <div className="teacher-modal-backdrop" onClick={() => setInspectingAttempt(null)}>
-          <div
-            ref={inspectModalRef}
-            className="teacher-modal-dialog"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="attempt-modal-title"
-            tabIndex={-1}
-          >
-            <div className="teacher-modal-header">
-              <div>
-                <h3 id="attempt-modal-title">
-                  Lembar Kerja: {inspectingAttempt.userFullName || 'Siswa'}
-                </h3>
-                <span style={{ fontSize: '0.75rem', color: '#CCFBF1' }}>
-                  {inspectingAttempt.classGrade || 'XI-MIPA-1'} • Skor: {inspectingAttempt.score}/100 •{' '}
-                  {inspectingAttempt.attemptType || 'Percobaan Siswa'}
-                </span>
-              </div>
-              <button
-                type="button"
-                className="teacher-modal-close"
-                onClick={() => setInspectingAttempt(null)}
-                aria-label="Tutup lembar rincian"
-              >
-                ✕
-              </button>
-            </div>
+      {/* 6. Inspection Modal (Rincian Satu Percobaan Siswa & Penilaian Esai) */}
+      {inspectingAttempt && (() => {
+        const hasEssay = Boolean(
+          inspectingAttempt.essayAnswers && Object.keys(inspectingAttempt.essayAnswers).length > 0
+        );
+        const currentTotalEssay = Object.values(gradingScores).reduce(
+          (acc, val) => acc + (Number(val) || 0),
+          0
+        );
+        const currentComposite = Math.round(
+          0.5 * (inspectingAttempt.score || 0) + 0.5 * currentTotalEssay
+        );
+        const isGraded = inspectingAttempt.essayGrading?.status === 'graded';
 
-            <div className="teacher-modal-body">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  padding: '0.75rem 1rem',
-                  backgroundColor: '#F8FAFC',
-                  borderRadius: '0.75rem',
-                  marginBottom: '1rem',
-                  fontSize: '0.8rem',
-                  color: '#475569',
-                }}
-              >
-                <span>
-                  <strong>ID Percobaan:</strong> {inspectingAttempt.attemptId}
-                </span>
-                <span>
-                  <strong>Versi Soal:</strong> v{inspectingAttempt.questionVersion || '1.0.0'}
-                  {Array.isArray(inspectingAttempt.questionSnapshot) && inspectingAttempt.questionSnapshot.length > 0 && (
-                    <span style={{ marginLeft: 6, fontSize: '0.725rem', color: '#0D9488', fontWeight: 600 }}>
-                      (Snapshot Tersimpan)
-                    </span>
-                  )}
-                </span>
-                <span>
-                  <strong>Jawaban Benar:</strong> {inspectingAttempt.correctCount} dari 10 soal
-                </span>
+        return (
+          <div className="teacher-modal-backdrop" onClick={() => setInspectingAttempt(null)}>
+            <div
+              ref={inspectModalRef}
+              className="teacher-modal-dialog"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="attempt-modal-title"
+              tabIndex={-1}
+              style={{ maxWidth: '850px' }}
+            >
+              <div className="teacher-modal-header">
+                <div>
+                  <h3 id="attempt-modal-title">
+                    Lembar Kerja: {inspectingAttempt.userFullName || 'Siswa'}
+                  </h3>
+                  <span style={{ fontSize: '0.75rem', color: '#CCFBF1' }}>
+                    {inspectingAttempt.classGrade || 'XI-MIPA-1'} • Skor PG: {inspectingAttempt.score}/100 •{' '}
+                    Skor Esai:{' '}
+                    {isGraded ? `${inspectingAttempt.essayGrading.totalEssayScore}/100` : 'Menunggu Penilaian'} •{' '}
+                    Nilai Akhir Terpadu:{' '}
+                    {inspectingAttempt.finalCompositeScore ?? (isGraded ? currentComposite : '-')}/100
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="teacher-modal-close"
+                  onClick={() => setInspectingAttempt(null)}
+                  aria-label="Tutup lembar rincian"
+                >
+                  ✕
+                </button>
               </div>
 
-              {getQuestionsForAttempt(inspectingAttempt).map((q, idx) => {
-                const answer = inspectingAttempt.answers?.[q.id];
-                const selectedOpt = answer?.selectedOption || '-';
-                const isCorrect = Boolean(answer?.isCorrect);
-                const selectedOptionObj = q.opsi?.find((o) => o.id === selectedOpt);
-                const correctOptionObj = q.opsi?.find((o) => o.id === q.jawabanBenar);
-
-                return (
+              <div className="teacher-modal-body">
+                {/* Save Success Notice */}
+                {saveSuccessNotice && (
                   <div
-                    key={q.id}
-                    className={`attempt-question-card ${isCorrect ? 'correct' : 'wrong'}`}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      borderRadius: '0.5rem',
+                      backgroundColor: '#DCFCE7',
+                      border: '1px solid #86EFAC',
+                      color: '#166534',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      marginBottom: '1rem',
+                    }}
                   >
-                    <div className="attempt-q-header">
-                      <span style={{ fontWeight: '800', fontSize: '0.825rem', color: '#134E4A' }}>
-                        Soal No. {idx + 1} ({q.id})
-                      </span>
-                      <span
-                        style={{
-                          fontWeight: '800',
-                          fontSize: '0.75rem',
-                          color: isCorrect ? '#16A34A' : '#DC2626',
-                          backgroundColor: isCorrect ? '#DCFCE7' : '#FEE2E2',
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '0.35rem',
-                        }}
-                      >
-                        {isCorrect ? '✓ Benar (+10)' : '✕ Salah (0)'}
-                      </span>
-                    </div>
+                    {saveSuccessNotice}
+                  </div>
+                )}
 
-                    <p className="attempt-q-text">{q.pertanyaan}</p>
+                {/* Sub-Tabs: Quiz Esai vs Pilihan Ganda */}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '0.5rem',
+                    marginBottom: '1rem',
+                    borderBottom: '2px solid #E2E8F0',
+                    paddingBottom: '0.5rem',
+                  }}
+                >
+                  {hasEssay && (
+                    <button
+                      type="button"
+                      onClick={() => setModalTab('essay')}
+                      style={{
+                        padding: '0.55rem 1.15rem',
+                        borderRadius: '0.5rem',
+                        border: modalTab === 'essay' ? '2px solid #0F766E' : '1px solid #CBD5E1',
+                        backgroundColor: modalTab === 'essay' ? '#F0FDFA' : '#FFFFFF',
+                        color: modalTab === 'essay' ? '#0F766E' : '#64748B',
+                        fontWeight: 800,
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                      }}
+                    >
+                      <span>✍️</span>
+                      <span>Penilaian Quiz Esai (5 Soal)</span>
+                      {isGraded ? (
+                        <span style={{ fontSize: '0.7rem', color: '#16A34A', fontWeight: 900 }}>✓ Dinilai</span>
+                      ) : (
+                        <span style={{ fontSize: '0.7rem', color: '#D97706', fontWeight: 900 }}>⏳ Perlu Nilai</span>
+                      )}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setModalTab('pg')}
+                    style={{
+                      padding: '0.55rem 1.15rem',
+                      borderRadius: '0.5rem',
+                      border: modalTab === 'pg' ? '2px solid #0F766E' : '1px solid #CBD5E1',
+                      backgroundColor: modalTab === 'pg' ? '#F0FDFA' : '#FFFFFF',
+                      color: modalTab === 'pg' ? '#0F766E' : '#64748B',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                    }}
+                  >
+                    <span>📝</span>
+                    <span>Rincian Pilihan Ganda (10 Soal)</span>
+                  </button>
+                </div>
 
-                    <div className="attempt-answer-box">
+                {/* TAB 1: PENILAIAN QUIZ ESAI */}
+                {modalTab === 'essay' && hasEssay && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {/* Live Score Summary Banner */}
+                    <div
+                      style={{
+                        padding: '1rem',
+                        borderRadius: '0.75rem',
+                        backgroundColor: '#F8FAFC',
+                        border: '1px solid #CBD5E1',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '0.75rem',
+                      }}
+                    >
                       <div>
-                        <strong style={{ color: isCorrect ? '#166534' : '#DC2626' }}>
-                          Jawaban Siswa:{' '}
-                        </strong>
-                        <span>
-                          Opsi {selectedOpt}: {selectedOptionObj?.teks || 'Tidak Menjawab'}
+                        <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block' }}>
+                          Kalkulasi Nilai Terpadu:
+                        </span>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#1E293B', marginTop: '0.2rem' }}>
+                          Nilai Akhir: <span style={{ color: '#0F766E', fontSize: '1.2rem' }}>{currentComposite}</span> / 100
+                        </div>
+                        <span style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                          (50% PG: {inspectingAttempt.score || 0} pt) + (50% Esai: {currentTotalEssay} pt)
                         </span>
                       </div>
-                      {!isCorrect && (
-                        <div>
-                          <strong style={{ color: '#166534' }}>Kunci yang Benar: </strong>
-                          <span>
-                            Opsi {q.jawabanBenar}: {correctOptionObj?.teks || '-'}
-                          </span>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div
+                          style={{
+                            padding: '0.4rem 0.75rem',
+                            borderRadius: '0.5rem',
+                            backgroundColor: '#FFFFFF',
+                            border: '1px solid #CBD5E1',
+                            textAlign: 'right',
+                          }}
+                        >
+                          <span style={{ fontSize: '0.7rem', color: '#64748B', display: 'block' }}>Total Skor Esai</span>
+                          <strong style={{ fontSize: '1.15rem', color: '#0F766E' }}>{currentTotalEssay}</strong>
+                          <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}> / 100</span>
                         </div>
-                      )}
+
+                        <button
+                          type="button"
+                          onClick={handleSaveGrading}
+                          disabled={savingGrade}
+                          style={{
+                            padding: '0.65rem 1.25rem',
+                            borderRadius: '0.75rem',
+                            border: 'none',
+                            backgroundColor: '#0F766E',
+                            color: '#FFFFFF',
+                            fontWeight: 800,
+                            fontSize: '0.875rem',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 10px rgba(15, 118, 110, 0.25)',
+                          }}
+                        >
+                          {savingGrade ? 'Menyimpan...' : '💾 Simpan Penilaian'}
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="attempt-explanation-box">
-                      <strong>Pembahasan Konsep: </strong>
-                      <span>{q.pembahasan}</span>
+                    {/* 5 Essay Questions */}
+                    {soalEsaiHidrolisisGaram.map((q, idx) => {
+                      const studentAnswer = inspectingAttempt.essayAnswers?.[q.id] || '';
+                      const currentScore = gradingScores[q.id] ?? 0;
+                      const currentFeedback = gradingFeedbacks[q.id] || '';
+
+                      return (
+                        <div
+                          key={q.id}
+                          style={{
+                            padding: '1.25rem',
+                            borderRadius: '0.875rem',
+                            border: '1px solid #E2E8F0',
+                            backgroundColor: '#FFFFFF',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.75rem',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0F766E', backgroundColor: '#CCFBF1', padding: '0.2rem 0.5rem', borderRadius: '0.35rem' }}>
+                                Soal No. {idx + 1}
+                              </span>
+                              <h4 style={{ margin: '0.35rem 0 0 0', fontSize: '1rem', fontWeight: 800, color: '#1E293B' }}>
+                                {q.judul}
+                              </h4>
+                            </div>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#D97706', backgroundColor: '#FEF3C7', padding: '0.2rem 0.5rem', borderRadius: '0.35rem' }}>
+                              Maksimal {q.maxScore} Poin
+                            </span>
+                          </div>
+
+                          {/* Pertanyaan */}
+                          <div style={{ fontSize: '0.875rem', color: '#334155', lineHeight: 1.6, whiteSpace: 'pre-wrap', backgroundColor: '#F8FAFC', padding: '0.75rem', borderRadius: '0.5rem' }}>
+                            <strong>Pertanyaan:</strong>
+                            <div style={{ marginTop: '0.25rem' }}>{q.pertanyaan}</div>
+                          </div>
+
+                          {/* Jawaban Siswa */}
+                          <div style={{ padding: '0.85rem', borderRadius: '0.5rem', backgroundColor: '#FFFDF5', border: '1px solid #FDE68A' }}>
+                            <strong style={{ fontSize: '0.8rem', color: '#92400E', display: 'block', marginBottom: '0.35rem' }}>
+                              ✍️ Jawaban Siswa ({inspectingAttempt.userFullName || 'Siswa'}):
+                            </strong>
+                            <div style={{ fontSize: '0.875rem', color: '#1E293B', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                              {studentAnswer.trim() ? studentAnswer : <em style={{ color: '#DC2626' }}>(Siswa tidak mengisi jawaban untuk nomor ini)</em>}
+                            </div>
+                          </div>
+
+                          {/* Kunci Jawaban Resmi */}
+                          <div style={{ padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: '#F0FDF4', border: '1px solid #86EFAC' }}>
+                            <strong style={{ fontSize: '0.8rem', color: '#166534', display: 'block', marginBottom: '0.25rem' }}>
+                              🔑 Kunci Jawaban Resmi:
+                            </strong>
+                            <div style={{ fontSize: '0.825rem', color: '#14532D', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                              {q.kunciJawaban}
+                            </div>
+                          </div>
+
+                          {/* Rubrik Penilaian */}
+                          <div style={{ padding: '0.65rem 0.75rem', borderRadius: '0.5rem', backgroundColor: '#F8FAFC', border: '1px dashed #CBD5E1', fontSize: '0.775rem', color: '#475569' }}>
+                            <strong style={{ color: '#0F766E', display: 'block', marginBottom: '0.2rem' }}>
+                              📋 Panduan Rubrik:
+                            </strong>
+                            <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                              {q.rubrik.map((r, rIdx) => (
+                                <li key={rIdx}>
+                                  <strong>{r.deskripsi}</strong>: {r.poin} poin
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          {/* Input Nilai & Feedback per Nomor */}
+                          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.25rem', backgroundColor: '#F1F5F9', padding: '0.75rem', borderRadius: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <label htmlFor={`score-input-${q.id}`} style={{ fontSize: '0.825rem', fontWeight: 800, color: '#1E293B' }}>
+                                Nilai (0 – {q.maxScore}):
+                              </label>
+                              <input
+                                id={`score-input-${q.id}`}
+                                type="number"
+                                min={0}
+                                max={q.maxScore}
+                                value={currentScore}
+                                onChange={(e) => handleScoreChange(q.id, e.target.value)}
+                                style={{
+                                  width: '70px',
+                                  padding: '0.4rem 0.5rem',
+                                  borderRadius: '0.35rem',
+                                  border: '2px solid #0F766E',
+                                  fontWeight: 800,
+                                  fontSize: '0.95rem',
+                                  textAlign: 'center',
+                                  color: '#0F766E',
+                                  backgroundColor: '#FFFFFF',
+                                }}
+                              />
+                              <span style={{ fontSize: '0.8rem', color: '#64748B' }}>/ {q.maxScore} pt</span>
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: '220px' }}>
+                              <input
+                                type="text"
+                                placeholder="Catatan koreksi untuk butir ini (opsional)..."
+                                value={currentFeedback}
+                                onChange={(e) => handleQuestionFeedbackChange(q.id, e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '0.4rem 0.65rem',
+                                  borderRadius: '0.35rem',
+                                  border: '1px solid #CBD5E1',
+                                  fontSize: '0.8rem',
+                                  boxSizing: 'border-box',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Catatan / Feedback Umum Guru */}
+                    <div style={{ padding: '1rem', backgroundColor: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '0.75rem' }}>
+                      <label htmlFor="general-feedback-input" style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1E293B', display: 'block', marginBottom: '0.35rem' }}>
+                        💬 Catatan & Umpan Balik Guru Secara Keseluruhan:
+                      </label>
+                      <textarea
+                        id="general-feedback-input"
+                        rows={3}
+                        value={generalFeedback}
+                        onChange={(e) => setGeneralFeedback(e.target.value)}
+                        placeholder="Berikan arahan evaluasi, saran perbaikan, atau penguatan konsep untuk siswa ini..."
+                        style={{
+                          width: '100%',
+                          padding: '0.65rem',
+                          borderRadius: '0.5rem',
+                          border: '1px solid #CBD5E1',
+                          fontSize: '0.85rem',
+                          boxSizing: 'border-box',
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                        }}
+                      />
+                    </div>
+
+                    {/* History Penilaian Sebelumnya (Audit Log) */}
+                    {inspectingAttempt.essayGrading?.history && inspectingAttempt.essayGrading.history.length > 0 && (
+                      <div style={{ padding: '0.75rem', backgroundColor: '#F8FAFC', borderRadius: '0.5rem', border: '1px solid #E2E8F0', fontSize: '0.75rem', color: '#64748B' }}>
+                        <strong>Riwayat Perubahan Penilaian:</strong>
+                        <ul style={{ margin: '0.25rem 0 0 0', paddingLeft: '1.25rem' }}>
+                          {inspectingAttempt.essayGrading.history.map((h, hIdx) => (
+                            <li key={hIdx}>
+                              {new Date(h.gradedAt).toLocaleString('id-ID')} WIB oleh {h.gradedBy || 'Guru'} • Skor Esai: {h.totalEssayScore}/100
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Action Bottom Bar */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setInspectingAttempt(null)}
+                        style={{
+                          padding: '0.65rem 1.25rem',
+                          borderRadius: '0.75rem',
+                          border: '1px solid #CBD5E1',
+                          backgroundColor: '#FFFFFF',
+                          color: '#475569',
+                          fontWeight: 700,
+                          fontSize: '0.875rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Tutup
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveGrading}
+                        disabled={savingGrade}
+                        style={{
+                          padding: '0.65rem 1.5rem',
+                          borderRadius: '0.75rem',
+                          border: 'none',
+                          backgroundColor: '#0F766E',
+                          color: '#FFFFFF',
+                          fontWeight: 800,
+                          fontSize: '0.875rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          boxShadow: '0 4px 10px rgba(15, 118, 110, 0.25)',
+                        }}
+                      >
+                        <span>💾</span>
+                        <span>{savingGrade ? 'Menyimpan...' : 'Simpan Penilaian Esai'}</span>
+                      </button>
                     </div>
                   </div>
-                );
-              })}
+                )}
+
+                {/* TAB 2: RINCIAN PILIHAN GANDA */}
+                {(modalTab === 'pg' || !hasEssay) && (
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        padding: '0.75rem 1rem',
+                        backgroundColor: '#F8FAFC',
+                        borderRadius: '0.75rem',
+                        marginBottom: '1rem',
+                        fontSize: '0.8rem',
+                        color: '#475569',
+                      }}
+                    >
+                      <span>
+                        <strong>ID Percobaan:</strong> {inspectingAttempt.attemptId}
+                      </span>
+                      <span>
+                        <strong>Versi Soal:</strong> v{inspectingAttempt.questionVersion || '1.0.0'}
+                        {Array.isArray(inspectingAttempt.questionSnapshot) && inspectingAttempt.questionSnapshot.length > 0 && (
+                          <span style={{ marginLeft: 6, fontSize: '0.725rem', color: '#0D9488', fontWeight: 600 }}>
+                            (Snapshot Tersimpan)
+                          </span>
+                        )}
+                      </span>
+                      <span>
+                        <strong>Jawaban Benar:</strong> {inspectingAttempt.correctCount} dari 10 soal
+                      </span>
+                    </div>
+
+                    {getQuestionsForAttempt(inspectingAttempt).map((q, idx) => {
+                      const answer = inspectingAttempt.answers?.[q.id];
+                      const selectedOpt = answer?.selectedOption || '-';
+                      const isCorrect = Boolean(answer?.isCorrect);
+                      const selectedOptionObj = q.opsi?.find((o) => o.id === selectedOpt);
+                      const correctOptionObj = q.opsi?.find((o) => o.id === q.jawabanBenar);
+
+                      return (
+                        <div
+                          key={q.id}
+                          className={`attempt-question-card ${isCorrect ? 'correct' : 'wrong'}`}
+                        >
+                          <div className="attempt-q-header">
+                            <span style={{ fontWeight: '800', fontSize: '0.825rem', color: '#134E4A' }}>
+                              Soal No. {idx + 1} ({q.id})
+                            </span>
+                            <span
+                              style={{
+                                fontWeight: '800',
+                                fontSize: '0.75rem',
+                                color: isCorrect ? '#16A34A' : '#DC2626',
+                                backgroundColor: isCorrect ? '#DCFCE7' : '#FEE2E2',
+                                padding: '0.15rem 0.5rem',
+                                borderRadius: '0.35rem',
+                              }}
+                            >
+                              {isCorrect ? '✓ Benar (+10)' : '✕ Salah (0)'}
+                            </span>
+                          </div>
+
+                          <p className="attempt-q-text">{q.pertanyaan}</p>
+
+                          <div className="attempt-answer-box">
+                            <div>
+                              <strong style={{ color: isCorrect ? '#166534' : '#DC2626' }}>
+                                Jawaban Siswa:{' '}
+                              </strong>
+                              <span>
+                                Opsi {selectedOpt}: {selectedOptionObj?.teks || 'Tidak Menjawab'}
+                              </span>
+                            </div>
+                            {!isCorrect && (
+                              <div>
+                                <strong style={{ color: '#166534' }}>Kunci yang Benar: </strong>
+                                <span>
+                                  Opsi {q.jawabanBenar}: {correctOptionObj?.teks || '-'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="attempt-explanation-box">
+                            <strong>Pembahasan Konsep: </strong>
+                            <span>{q.pembahasan}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

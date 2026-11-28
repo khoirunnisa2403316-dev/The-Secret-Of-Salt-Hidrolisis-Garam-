@@ -4,12 +4,16 @@ import type {
   SubmittedAnswer,
   StorageOperationResult,
   QuizQuestion,
+  EssayGradingResult,
+  EssayQuestionScore,
+  EssayGradingHistoryEntry,
 } from '../types/quiz';
 import {
   SOAL_VERSION,
   soalHidrolisisGaram,
   QUESTION_BANKS_BY_VERSION,
 } from '../data/soalHidrolisisGaram';
+import { soalEsaiHidrolisisGaram } from '../data/soalEsaiHidrolisisGaram';
 
 const STORAGE_KEYS = {
   GUEST_SESSION: 'secret_of_salt_guest_m1_session',
@@ -384,16 +388,72 @@ export function sanitizeAndRecoverSession(raw: unknown, expectedUserId?: string)
     completedAt = null;
   }
 
+  // 9. Validate currentPhase and essayAnswers
+  const currentPhase: 'pg' | 'essay' =
+    obj.currentPhase === 'essay' ? 'essay' : 'pg';
+
+  const safeEssayAnswers: Record<string, string> = {};
+  if (obj.essayAnswers && typeof obj.essayAnswers === 'object' && !Array.isArray(obj.essayAnswers)) {
+    for (const [k, v] of Object.entries(obj.essayAnswers as Record<string, unknown>)) {
+      if (typeof v === 'string') {
+        safeEssayAnswers[k] = v;
+      }
+    }
+  }
+
+  // 10. Validate essayGrading
+  let safeEssayGrading: EssayGradingResult | undefined = undefined;
+  if (obj.essayGrading && typeof obj.essayGrading === 'object' && !Array.isArray(obj.essayGrading)) {
+    const eg = obj.essayGrading as Record<string, unknown>;
+    const gStatus = eg.status === 'graded' ? 'graded' : 'pending';
+    const totalEssayScore =
+      typeof eg.totalEssayScore === 'number'
+        ? Math.max(0, Math.min(100, Math.round(eg.totalEssayScore)))
+        : 0;
+    const questionScores: Record<string, EssayQuestionScore> = {};
+    if (eg.questionScores && typeof eg.questionScores === 'object' && !Array.isArray(eg.questionScores)) {
+      for (const [qId, qScore] of Object.entries(eg.questionScores as Record<string, unknown>)) {
+        if (qScore && typeof qScore === 'object' && !Array.isArray(qScore)) {
+          const qs = qScore as Record<string, unknown>;
+          questionScores[qId] = {
+            score: typeof qs.score === 'number' ? Math.max(0, Math.min(20, Math.round(qs.score))) : 0,
+            feedback: typeof qs.feedback === 'string' ? qs.feedback : undefined,
+          };
+        }
+      }
+    }
+    safeEssayGrading = {
+      status: gStatus,
+      totalEssayScore,
+      questionScores,
+      gradedBy: typeof eg.gradedBy === 'string' ? eg.gradedBy : undefined,
+      gradedAt: typeof eg.gradedAt === 'string' ? eg.gradedAt : undefined,
+      feedback: typeof eg.feedback === 'string' ? eg.feedback : undefined,
+      history: Array.isArray(eg.history) ? (eg.history as EssayGradingHistoryEntry[]) : undefined,
+    };
+  }
+
+  let finalCompositeScore: number | null = null;
+  if (typeof obj.finalCompositeScore === 'number' && !isNaN(obj.finalCompositeScore)) {
+    finalCompositeScore = Math.max(0, Math.min(100, Math.round(obj.finalCompositeScore)));
+  } else if (safeEssayGrading && safeEssayGrading.status === 'graded' && typeof score === 'number') {
+    finalCompositeScore = Math.round(0.5 * score + 0.5 * safeEssayGrading.totalEssayScore);
+  }
+
   const session: GuestQuizSession = {
     userId: expectedUserId || rawUserId,
     guestSessionId,
     attemptId,
     questionVersion,
+    currentPhase,
     draftAnswers: safeDraftAnswers,
     submittedAnswers: safeSubmittedAnswers,
     currentQuestionIndex,
+    essayAnswers: safeEssayAnswers,
+    essayGrading: safeEssayGrading,
     status,
     score,
+    finalCompositeScore,
     startedAt,
     completedAt,
   };
@@ -427,11 +487,14 @@ export function createNewGuestSession(
     guestSessionId: existingGuestId || generateUid('guest'),
     attemptId: generateUid('att_m1'),
     questionVersion: SOAL_VERSION,
+    currentPhase: 'pg',
     draftAnswers: {},
     submittedAnswers: {},
     currentQuestionIndex: 0,
+    essayAnswers: {},
     status: 'in_progress',
     score: null, // Distinct from final score
+    finalCompositeScore: null,
     startedAt: new Date().toISOString(),
     completedAt: null,
   };
@@ -657,8 +720,23 @@ export function loadQuizHistory(): StorageOperationResult<QuizAttemptHistoryItem
           completedAt:
             typeof item.completedAt === 'string' ? item.completedAt : new Date().toISOString(),
           answers: safeAnswers,
+          essayAnswers:
+            item.essayAnswers && typeof item.essayAnswers === 'object' && !Array.isArray(item.essayAnswers)
+              ? (item.essayAnswers as Record<string, string>)
+              : undefined,
+          essayGrading:
+            item.essayGrading && typeof item.essayGrading === 'object' && !Array.isArray(item.essayGrading)
+              ? (item.essayGrading as EssayGradingResult)
+              : undefined,
+          finalCompositeScore:
+            typeof item.finalCompositeScore === 'number'
+              ? item.finalCompositeScore
+              : undefined,
           questionSnapshot: Array.isArray(item.questionSnapshot)
             ? (item.questionSnapshot as QuizQuestion[])
+            : undefined,
+          essaySnapshot: Array.isArray(item.essaySnapshot)
+            ? (item.essaySnapshot as typeof soalEsaiHidrolisisGaram)
             : undefined,
         };
       });
@@ -899,10 +977,14 @@ export function retakeQuizWithNewAttempt(
         totalQuestions: TOTAL_QUESTIONS,
         correctCount,
         score: safeSession.score,
+        essayAnswers: safeSession.essayAnswers,
+        essayGrading: safeSession.essayGrading,
+        finalCompositeScore: safeSession.finalCompositeScore,
         startedAt: safeSession.startedAt,
         completedAt: safeSession.completedAt || new Date().toISOString(),
         answers: safeSession.submittedAnswers,
         questionSnapshot: soalHidrolisisGaram,
+        essaySnapshot: soalEsaiHidrolisisGaram,
       });
     }
   }

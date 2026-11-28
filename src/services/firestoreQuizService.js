@@ -69,6 +69,18 @@ export async function saveQuizAttemptToFirestore(attempt, userId) {
       startedAt: attempt.startedAt,
       completedAt: attempt.completedAt,
       answers: attempt.answers || {},
+      essayAnswers: attempt.essayAnswers || {},
+      essayGrading: attempt.essayGrading || {
+        status: 'pending',
+        totalEssayScore: 0,
+        questionScores: {},
+      },
+      finalCompositeScore:
+        typeof attempt.finalCompositeScore === 'number'
+          ? attempt.finalCompositeScore
+          : (attempt.essayGrading?.status === 'graded'
+            ? Math.round(0.5 * (attempt.score || 0) + 0.5 * (attempt.essayGrading.totalEssayScore || 0))
+            : null),
       syncedAt: serverTimestamp(),
     };
 
@@ -103,7 +115,11 @@ export async function fetchUserQuizHistoryFromFirestore(userId) {
       list.push(d.data());
     });
     return list;
-  } catch {
+  } catch (err) {
+    const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
+    if (isPermission) {
+      return [];
+    }
     try {
       const attemptsRef = collection(db, 'quiz_attempts');
       const qFallback = query(attemptsRef, where('userId', '==', userId));
@@ -115,7 +131,10 @@ export async function fetchUserQuizHistoryFromFirestore(userId) {
       list.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
       return list;
     } catch (e) {
-      console.warn('Firestore quiz history fetch fallback failed:', e);
+      const isFallbackPerm = e?.code === 'permission-denied' || e?.message?.toLowerCase().includes('permission');
+      if (!isFallbackPerm) {
+        console.warn('Firestore quiz history fetch fallback notice:', e?.message || e);
+      }
       return [];
     }
   }
@@ -675,4 +694,108 @@ export function calculateItemAnalysis(submissions, attemptRule = 'latest') {
     mostDifficultQuestion: mostDifficult,
     pedagogicalInsight,
   };
+}
+
+/**
+ * 8. Save Teacher Essay Grading to Firestore and sync local storage
+ */
+export async function saveTeacherEssayGrading(
+  attemptId,
+  studentUserId,
+  gradingPayload,
+  teacherName = 'Guru Kimia'
+) {
+  if (!attemptId || !gradingPayload) {
+    return { success: false, error: 'attemptId and gradingPayload are required' };
+  }
+
+  const totalEssayScore =
+    typeof gradingPayload.totalEssayScore === 'number'
+      ? Math.max(0, Math.min(100, Math.round(gradingPayload.totalEssayScore)))
+      : 0;
+
+  const gradingRecord = {
+    status: 'graded',
+    totalEssayScore,
+    questionScores: gradingPayload.questionScores || {},
+    gradedBy: teacherName,
+    gradedAt: new Date().toISOString(),
+    feedback: gradingPayload.feedback || '',
+    history: gradingPayload.history || [],
+  };
+
+  let firestoreSuccess = false;
+
+  // 1. Update Firestore if configured
+  if (isFirebaseConfigured() && db) {
+    try {
+      const attemptDocRef = doc(db, 'quiz_attempts', attemptId);
+      const updateData = {
+        essayGrading: gradingRecord,
+        gradedAt: serverTimestamp(),
+      };
+      if (typeof gradingPayload.finalCompositeScore === 'number') {
+        updateData.finalCompositeScore = gradingPayload.finalCompositeScore;
+      }
+      await setDoc(attemptDocRef, updateData, { merge: true });
+      firestoreSuccess = true;
+    } catch (err) {
+      console.warn('Could not update essay grade in Firestore (falling back to local):', err);
+    }
+  }
+
+  // 2. Update student local storage if studentUserId provided
+  if (studentUserId) {
+    try {
+      const userHistory = getUserLocalHistory(studentUserId);
+      const updated = userHistory.map((item) => {
+        if (item.attemptId === attemptId) {
+          const pgScore = typeof item.score === 'number' ? item.score : 0;
+          const finalComposite =
+            typeof gradingPayload.finalCompositeScore === 'number'
+              ? gradingPayload.finalCompositeScore
+              : Math.round(0.5 * pgScore + 0.5 * totalEssayScore);
+          return {
+            ...item,
+            essayGrading: gradingRecord,
+            finalCompositeScore: finalComposite,
+          };
+        }
+        return item;
+      });
+      saveUserLocalHistory(studentUserId, updated);
+    } catch (e) {
+      console.warn('Error updating user local history with essay grade:', e);
+    }
+  }
+
+  // 3. Update guest/shared history in localStorage as well
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.GUEST_HISTORY);
+    if (raw) {
+      const historyList = JSON.parse(raw);
+      if (Array.isArray(historyList)) {
+        const updated = historyList.map((item) => {
+          if (item.attemptId === attemptId) {
+            const pgScore = typeof item.score === 'number' ? item.score : 0;
+            const finalComposite =
+              typeof gradingPayload.finalCompositeScore === 'number'
+                ? gradingPayload.finalCompositeScore
+                : Math.round(0.5 * pgScore + 0.5 * totalEssayScore);
+            return {
+              ...item,
+              essayGrading: gradingRecord,
+              finalCompositeScore: finalComposite,
+            };
+          }
+          return item;
+        });
+        localStorage.setItem(STORAGE_KEYS.GUEST_HISTORY, JSON.stringify(updated));
+      }
+    }
+  } catch (e) {
+    console.warn('Error updating guest history with essay grade:', e);
+  }
+
+  return { success: true, gradingRecord, firestoreSuccess };
 }

@@ -79,7 +79,7 @@ export default function HeroSection({ onStartClick }) {
     <section className="hero-section" aria-labelledby="hero-heading">
       <div className="hero-container container">
         {/* Left Column: Text & Curiosity Hook */}
-        <div className="hero-content">
+        <div className="hero-content" id="beranda-hero-content">
           <div className="hero-badge">
             <span className="hero-badge-icon" aria-hidden="true">🧪</span>
             <span>The Secret of Salt • SMA/MA Kelas XI (Fase F)</span>
@@ -195,7 +195,7 @@ export default function HeroSection({ onStartClick }) {
           </div>
 
           {/* Interactive Beaker Visualizer & Digital pH Meter */}
-          <div className="beaker-stage">
+          <div className="beaker-stage" id="beaker-stage-container">
             {/* Visual Glass Beaker */}
             <div
               className="beaker-glass"
