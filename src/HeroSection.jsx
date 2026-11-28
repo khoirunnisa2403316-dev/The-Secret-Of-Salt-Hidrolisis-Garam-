@@ -82,7 +82,7 @@ export default function HeroSection({ onStartClick }) {
         <div className="hero-content" id="beranda-hero-content">
           <div className="hero-badge">
             <span className="hero-badge-icon" aria-hidden="true">🧪</span>
-            <span>The Secret of Salt • SMA/MA Kelas XI (Fase F)</span>
+            <span>Kurikulum Merdeka • Pembelajaran Mendalam (Deep Learning) • Modul Lengkap Fase F</span>
           </div>
 
           <h1 id="hero-heading" className="hero-title">

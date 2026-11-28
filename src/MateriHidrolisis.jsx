@@ -365,7 +365,7 @@ export default function MateriHidrolisis() {
         <div className="materi-header">
           <div className="materi-badge">
             <span>📚</span>
-            <span>Kurikulum Merdeka • Modul Lengkap Fase F</span>
+            <span>Kurikulum Merdeka • Pembelajaran Mendalam (Deep Learning) • Modul Lengkap Fase F</span>
           </div>
           <h2 id="materi-heading" className="materi-title">
             Materi Pembelajaran <span className="highlight-teal">Hidrolisis Garam</span>

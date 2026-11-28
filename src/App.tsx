@@ -92,6 +92,12 @@ function HomePage() {
                   Nilai <em>K</em><sub>a</sub> CH₃COOH = 1,8 × 10⁻⁵ dan <em>K</em><sub>b</sub> NH₃ = 1,8 × 10⁻⁵ diambil dari tabel tetapan ionisasi standar pada suhu 25°C (<em>K</em><sub>w</sub> = 1,0 × 10⁻¹⁴)
                 </div>
               </li>
+              <li className="footer-ref-item">
+                <span className="footer-ref-bullet">🏛️</span>
+                <div>
+                  Disusun sesuai Kurikulum Merdeka dengan pendekatan Pembelajaran Mendalam (Deep Learning) berdasarkan Permendikdasmen No. 13 Tahun 2025 tentang Kurikulum Nasional, dengan prinsip Mindful, Meaningful, dan Joyful.
+                </div>
+              </li>
             </ul>
           </section>
 
