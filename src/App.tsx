@@ -6,6 +6,7 @@ import Navbar from './Navbar.jsx';
 import HeroSection from './HeroSection.jsx';
 import TopicCards from './TopicCards.jsx';
 import QuizModule1 from './components/assessment/QuizModule1';
+import OnboardingTour from './components/tour/OnboardingTour';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -31,6 +32,9 @@ function HomePage() {
     <div className="app-wrapper">
       {/* 1. Global Navbar with Media Identity & Auth Entrypoints */}
       <Navbar onStartClick={handleStartLearning} />
+
+      {/* Interactive Onboarding Tour Guide */}
+      <OnboardingTour />
 
       {/* 2. Main Chemistry Learning Area */}
       <main>

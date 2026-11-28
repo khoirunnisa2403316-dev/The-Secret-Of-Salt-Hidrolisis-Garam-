@@ -879,6 +879,7 @@ export default function QuizModule1() {
         {/* Phase Navigation Tabs */}
         {session.status !== 'completed' && (
           <div
+            id="quiz-phase-tabs"
             style={{
               display: 'flex',
               gap: '0.75rem',
@@ -952,7 +953,7 @@ export default function QuizModule1() {
         ) : session.status !== 'completed' ? (
           <>
             {/* Question Palette & Progress Bar */}
-            <div className="quiz-nav-card">
+            <div className="quiz-nav-card" id="kuis-pg-area">
               <div className="nav-header-row">
                 <div className="progress-info-group">
                   <span className="progress-text">
