@@ -92,11 +92,11 @@ export default function OnboardingTour() {
 
     const targetEl = document.querySelector(targetSelector);
     if (!targetEl) {
-      // If target is temporarily not in DOM, fallback gracefully to center
+      // Fallback gracefully to viewport center if target is not found
       setSpotlightRect(null);
       setModalPosition({
-        top: Math.max(20, (window.innerHeight - 380) / 2),
-        left: Math.max(16, (window.innerWidth - 440) / 2),
+        top: Math.max(20, (window.innerHeight - 340) / 2),
+        left: Math.max(16, (window.innerWidth - 420) / 2),
       });
       return;
     }
@@ -105,13 +105,13 @@ export default function OnboardingTour() {
     if (rect.width === 0 || rect.height === 0) {
       setSpotlightRect(null);
       setModalPosition({
-        top: Math.max(20, (window.innerHeight - 380) / 2),
-        left: Math.max(16, (window.innerWidth - 440) / 2),
+        top: Math.max(20, (window.innerHeight - 340) / 2),
+        left: Math.max(16, (window.innerWidth - 420) / 2),
       });
       return;
     }
 
-    const padding = 10;
+    const padding = 8;
     const spotTop = Math.max(0, rect.top - padding);
     const spotLeft = Math.max(0, rect.left - padding);
     const spotWidth = Math.min(window.innerWidth - spotLeft, rect.width + padding * 2);
@@ -124,30 +124,30 @@ export default function OnboardingTour() {
       height: spotHeight,
     });
 
-    // Calculate smart modal placement
-    const modalEl = modalRef.current;
-    const modalWidth = modalEl?.offsetWidth || Math.min(440, window.innerWidth - 32);
-    const modalHeight = modalEl?.offsetHeight || 380;
-
+    // Mobile uses fixed bottom sheet CSS positioning
     const isMobile = window.innerWidth <= 640;
     if (isMobile) {
-      // Mobile uses bottom sheet CSS positioning
       return;
     }
+
+    // Desktop: calculate dynamic smart modal placement
+    const modalEl = modalRef.current;
+    const modalWidth = modalEl?.offsetWidth || Math.min(440, window.innerWidth - 32);
+    const modalHeight = modalEl?.offsetHeight || 340;
 
     // Horizontal centering relative to target, clamped to screen edges
     const idealLeft = spotLeft + (spotWidth / 2) - (modalWidth / 2);
     let clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - modalWidth - 16));
 
     // Vertical placement
-    let idealTop = spotTop + spotHeight + 16; // Default to below target
-    const spaceBelow = window.innerHeight - (spotTop + spotHeight + 16);
-    const spaceAbove = spotTop - 16;
+    let idealTop = spotTop + spotHeight + 14; // Default to below target
+    const spaceBelow = window.innerHeight - (spotTop + spotHeight + 14);
+    const spaceAbove = spotTop - 14;
 
     if (currentStep.preferredPosition === 'top' && spaceAbove >= modalHeight) {
-      idealTop = spotTop - modalHeight - 16;
+      idealTop = spotTop - modalHeight - 14;
     } else if (spaceBelow < modalHeight && spaceAbove >= modalHeight) {
-      idealTop = spotTop - modalHeight - 16;
+      idealTop = spotTop - modalHeight - 14;
     } else if (spaceBelow < modalHeight && spaceAbove < modalHeight) {
       // Both top and bottom space are constrained: check side placement to avoid covering target
       const spaceRight = window.innerWidth - (spotLeft + spotWidth + 24);
@@ -171,7 +171,7 @@ export default function OnboardingTour() {
     });
   }, [isOpen, currentStep]);
 
-  // 5. Scroll smoothly to target when step changes
+  // 5. Scroll smoothly to target with viewport offsets
   useEffect(() => {
     if (!isOpen || !currentStep) return;
 
@@ -182,19 +182,31 @@ export default function OnboardingTour() {
 
     const targetEl = document.querySelector(targetSelector);
     if (targetEl) {
-      const isMobile = window.innerWidth <= 640;
-      // On mobile, the modal is anchored at the bottom, so align target near top with block: 'start'
-      const scrollBlock = isMobile
-        ? 'start'
-        : currentStep.preferredPosition === 'top'
-        ? 'end'
-        : 'start';
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        // Mobile offset: align target comfortably right below the mobile top bar (64px + 16px safety margin = 80px)
+        // This ensures the element is never hidden behind the top bar and never obstructed by the bottom sheet popup.
+        const elemRect = targetEl.getBoundingClientRect();
+        const currentScrollY = window.scrollY || window.pageYOffset;
+        const elemTopAbs = elemRect.top + currentScrollY;
+        const targetScrollY = Math.max(0, elemTopAbs - 80);
 
-      targetEl.scrollIntoView({
-        behavior: 'smooth',
-        block: scrollBlock,
-        inline: 'nearest',
-      });
+        window.scrollTo({
+          top: targetScrollY,
+          left: 0,
+          behavior: 'smooth',
+        });
+      } else {
+        // Desktop: scroll so that either top or bottom of target has sufficient clearance for the modal
+        const scrollBlock =
+          currentStep.preferredPosition === 'top' ? 'end' : 'start';
+
+        targetEl.scrollIntoView({
+          behavior: 'smooth',
+          block: scrollBlock,
+          inline: 'nearest',
+        });
+      }
     }
 
     // Re-evaluate positions after smooth scroll starts and finishes
@@ -312,7 +324,7 @@ export default function OnboardingTour() {
                 onClick={handleSkip}
                 className="tour-close-btn"
                 aria-label="Tutup dan lewati panduan tur"
-                title="Tutup panduan"
+                title="Tutup panduan (Esc)"
               >
                 ✕
               </button>
@@ -333,33 +345,36 @@ export default function OnboardingTour() {
               />
             </div>
 
-            {/* Title & Icon */}
-            <div className="tour-title-wrap">
-              <span className="tour-title-icon" aria-hidden="true">
-                {currentStep.icon}
-              </span>
-              <h3 id="tour-modal-title" className="tour-title">
-                {currentStep.title}
-              </h3>
+            {/* Scrollable Body Content (Only this part scrolls if height is constrained) */}
+            <div className="tour-modal-body">
+              {/* Title & Icon */}
+              <div className="tour-title-wrap">
+                <span className="tour-title-icon" aria-hidden="true">
+                  {currentStep.icon}
+                </span>
+                <h3 id="tour-modal-title" className="tour-title">
+                  {currentStep.title}
+                </h3>
+              </div>
+
+              {/* Short & Comprehensible Description */}
+              <p className="tour-description">
+                {currentStep.description}
+              </p>
+
+              {/* Helpful Tips Box */}
+              {currentStep.tip && (
+                <div className="tour-tips-box">
+                  <span className="tour-tips-icon" aria-hidden="true">💡</span>
+                  <div className="tour-tips-content">
+                    <strong>Tips Belajar:</strong>
+                    <span>{currentStep.tip}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Short & Comprehensible Description */}
-            <p className="tour-description">
-              {currentStep.description}
-            </p>
-
-            {/* Helpful Tips Box */}
-            {currentStep.tip && (
-              <div className="tour-tips-box">
-                <span className="tour-tips-icon" aria-hidden="true">💡</span>
-                <div className="tour-tips-content">
-                  <strong>Tips Belajar:</strong>
-                  <span>{currentStep.tip}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Navigation Buttons */}
+            {/* Sticky Footer: Navigation Buttons (Always visible and never cut off) */}
             <div className="tour-modal-footer">
               <button
                 type="button"
