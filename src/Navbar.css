@@ -341,13 +341,18 @@
   font-size: 0.84rem;
   font-weight: 700;
   text-decoration: none;
-  box-shadow: 0 3px 10px rgba(15, 118, 110, 0.25);
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.28), 0 2px 0 #0d5f59;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .sidebar-teacher-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 5px 14px rgba(15, 118, 110, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(15, 118, 110, 0.38), 0 2.5px 0 #0d5f59;
+}
+
+.sidebar-teacher-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.2), 0 0.5px 0 #0d5f59;
 }
 
 .sidebar-dashboard-btn {
@@ -362,12 +367,15 @@
   font-size: 0.84rem;
   font-weight: 700;
   text-decoration: none;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.08);
   transition: all 0.2s ease;
 }
 
 .sidebar-dashboard-btn:hover {
   background: #CCFBF1;
   border-color: #5EEAD4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.15);
 }
 
 /* Utility Buttons (Bantuan, Tema, Mulai) */
@@ -389,6 +397,7 @@
   border: 1px solid var(--color-border);
   background: #FFFFFF;
   color: #475569;
+  box-shadow: 0 1.5px 4px rgba(36, 59, 100, 0.04);
   transition: all 0.18s ease;
   width: 100%;
   text-align: left;
@@ -398,6 +407,8 @@
   background: #F8FAFC;
   border-color: #CBD5E1;
   color: var(--color-deep-navy);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(36, 59, 100, 0.08);
 }
 
 .sidebar-util-btn.warm-active {
@@ -419,15 +430,20 @@
   font-weight: 700;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(32, 184, 170, 0.28);
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(32, 184, 170, 0.32), 0 2.5px 0 #148479;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   width: 100%;
   margin-top: 4px;
 }
 
 .sidebar-cta-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(32, 184, 170, 0.38);
+  box-shadow: 0 8px 20px rgba(32, 184, 170, 0.42), 0 3px 0 #148479;
+}
+
+.sidebar-cta-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(32, 184, 170, 0.25), 0 0.5px 0 #148479;
 }
 
 /* --------------------------------------------------------------------------
@@ -459,12 +475,19 @@
   font-size: 0.85rem;
   font-weight: 700;
   text-decoration: none;
+  box-shadow: 0 2px 6px rgba(36, 59, 100, 0.05), 0 1px 0 rgba(36, 59, 100, 0.08);
   transition: all 0.18s ease;
 }
 
 .sidebar-btn-login:hover {
   border-color: #94A3B8;
   background: #F8FAFC;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(36, 59, 100, 0.08);
+}
+
+.sidebar-btn-login:active {
+  transform: translateY(1px);
 }
 
 .sidebar-btn-register {
@@ -478,12 +501,19 @@
   font-size: 0.85rem;
   font-weight: 700;
   text-decoration: none;
-  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.22);
-  transition: all 0.18s ease;
+  box-shadow: 0 3px 10px rgba(15, 118, 110, 0.28), 0 2px 0 #0d5f59;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
 
 .sidebar-btn-register:hover {
   background: #115E59;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(15, 118, 110, 0.38), 0 2.5px 0 #0d5f59;
+}
+
+.sidebar-btn-register:active {
+  transform: translateY(1px);
+  box-shadow: 0 1.5px 4px rgba(15, 118, 110, 0.2), 0 0.5px 0 #0d5f59;
 }
 
 /* Authenticated User Pill at Bottom */
@@ -495,6 +525,7 @@
   background: #F8FAFC;
   border-radius: 12px;
   border: 1px solid #E2E8F0;
+  box-shadow: 0 2px 8px rgba(36, 59, 100, 0.04), inset 0 1px 0 #ffffff;
 }
 
 .sidebar-user-left {

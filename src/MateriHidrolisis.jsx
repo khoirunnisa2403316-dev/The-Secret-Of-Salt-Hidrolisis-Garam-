@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import './MateriHidrolisis.css';
 
 // Superscript converter for scientific notation powers
@@ -71,6 +71,25 @@ export default function MateriHidrolisis() {
   const [ionPresetMode, setIonPresetMode] = useState('cuka'); // 'cuka' | 'amonia' | 'custom'
   const [kaInputVal, setKaInputVal] = useState('1.8e-5');
   const [kbInputVal, setKbInputVal] = useState('1.8e-5');
+
+  // Listen to external switch requests (e.g. from SearchBar)
+  useEffect(() => {
+    const handleSwitchTab = (e) => {
+      const { tab, saltType } = e.detail || {};
+      if (tab) {
+        setActiveTab(tab);
+      }
+      if (saltType) {
+        setSelectedSaltType(saltType);
+        if (tab === 'kalkulator') {
+          setCalcSaltType(saltType);
+        }
+      }
+    };
+
+    window.addEventListener('switch-materi-tab', handleSwitchTab);
+    return () => window.removeEventListener('switch-materi-tab', handleSwitchTab);
+  }, []);
 
   // Preset Handler for Ka/Kb buttons
   const handleSelectIonPreset = (mode) => {

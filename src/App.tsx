@@ -5,6 +5,7 @@ import { useAuth } from './context/useAuth';
 import { isTeacherEmail } from './services/authService';
 import Navbar from './Navbar.jsx';
 import HeroSection from './HeroSection.jsx';
+import SearchBar from './components/search/SearchBar';
 import TopicCards from './TopicCards.jsx';
 import MateriHidrolisis from './MateriHidrolisis.jsx';
 import QuizModule1 from './components/assessment/QuizModule1';
@@ -39,7 +40,12 @@ function HomePage() {
       <OnboardingTour />
 
       {/* 2. Main Chemistry Learning Area */}
-      <main>
+      <main id="main-content">
+        {/* Search Bar: Kolom Pencarian Konsep & Materi Hidrolisis Garam */}
+        <div className="beranda-search-wrapper container" id="pencarian-materi">
+          <SearchBar />
+        </div>
+
         {/* Hero Section with Virtual Lab & Curiosity Phenomenon */}
         <HeroSection onStartClick={handleStartLearning} />
 

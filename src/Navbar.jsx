@@ -434,7 +434,7 @@ export default function Navbar({ onStartClick }) {
                 <div>
                   <strong>Cegah Miskonsepsi Kimia</strong>
                   <p>
-                    Ingat bahwa pH netral = 7 secara spesifik berlaku pada suhu 25°C ($K_w = 1,0 \times 10^{-14}$). Pada suhu lebih tinggi, nilai pH netral bergeser, namun larutan tetap netral jika $[H_3O^+] = [OH^-]$. Pelarutan garam bukanlah hidrolisis; hanya ion konjugasi lemah yang bereaksi dengan molekul air.
+                    Ingat bahwa pH netral tidak selalu 7, karena nilainya bergantung pada suhu. Pada suhu 25°C, pH netral adalah 7 dengan nilai Kw = 1,0 × 10⁻¹⁴. Pada suhu yang berbeda, pH netral dapat berubah, tetapi larutan tetap netral selama konsentrasi ion hidronium sama dengan konsentrasi ion hidroksida ([H₃O⁺] = [OH⁻]). Pelarutan garam berbeda dengan hidrolisis garam. Hidrolisis terjadi ketika ion-ion tertentu dari garam bereaksi dengan molekul air, umumnya ion konjugasi dari asam lemah atau basa lemah.
                   </p>
                 </div>
               </div>
