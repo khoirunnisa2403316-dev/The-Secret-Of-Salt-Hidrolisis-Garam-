@@ -7,7 +7,12 @@ import {
   fetchTeacherClassSubmissions,
   calculateItemAnalysis,
   saveTeacherEssayGrading,
+  getAccountQueue,
+  processAccountSyncQueue,
 } from '../services/firestoreQuizService';
+import { isFirebaseConfigured } from '../services/firebase';
+import { isTeacherEmail } from '../services/authService';
+import { SOAL_VERSION } from '../data/soalHidrolisisGaram';
 import { getQuestionsForAttempt } from '../data/soalHidrolisisGaram';
 import { soalEsaiHidrolisisGaram } from '../data/soalEsaiHidrolisisGaram';
 import './TeacherDashboard.css';
@@ -24,7 +29,13 @@ export default function TeacherDashboard() {
   // Filter & View States
   const [selectedClass, setSelectedClass] = useState('all');
   const [attemptRule, setAttemptRule] = useState('latest'); // 'latest' | 'best' | 'all'
-  const [activeTab, setActiveTab] = useState('submissions'); // 'submissions' | 'items'
+  const [activeTab, setActiveTab] = useState('submissions'); // 'submissions' | 'items' | 'system'
+
+  // Firebase Technical Admin States
+  const [accountQueue, setAccountQueue] = useState(() => (user?.id ? getAccountQueue(user.id) : []));
+  const [processingQueue, setProcessingQueue] = useState(false);
+  const [queueNotice, setQueueNotice] = useState('');
+  const [showConfigGuide, setShowConfigGuide] = useState(true);
 
   // Data Loading & Status States
   const [submissions, setSubmissions] = useState([]);
@@ -223,10 +234,34 @@ export default function TeacherDashboard() {
     return calculateItemAnalysis(submissions, attemptRule);
   }, [submissions, attemptRule]);
 
-  // Strict Authorization: ONLY khoirun.nisa.2403316@students.um.ac.id
+  // Handle proses antrean pengiriman lokal admin
+  const handleProcessQueue = async () => {
+    if (!user?.id || processingQueue) return;
+    setProcessingQueue(true);
+    setQueueNotice('');
+    try {
+      const res = await processAccountSyncQueue(user.id);
+      if (res.processed > 0) {
+        setQueueNotice(`Berhasil mengirimkan ${res.processed} percobaan kuis ke Cloud Firestore!`);
+      } else if (res.failed > 0) {
+        setQueueNotice(`Terdapat ${res.failed} pengiriman gagal. Pastikan koneksi internet aktif.`);
+      }
+      if (user?.id) {
+        setAccountQueue(getAccountQueue(user.id));
+      }
+    } catch (err) {
+      setQueueNotice(`Gagal memproses antrean: ${err.message}`);
+    } finally {
+      setProcessingQueue(false);
+    }
+  };
+
+  // Strict Authorization: Verified teacher account and role
   const isAuthorizedTeacher =
-    user?.email?.toLowerCase().trim() === 'khoirun.nisa.2403316@students.um.ac.id' &&
+    Boolean(user?.email && isTeacherEmail(user.email)) &&
     user?.role === 'teacher';
+
+  const isCloudActive = isFirebaseConfigured();
 
   if (!isAuthorizedTeacher) {
     return (
@@ -465,7 +500,7 @@ export default function TeacherDashboard() {
           </section>
         )}
 
-        {/* 5. Navigation Tabs (Daftar Pengumpulan vs Rekap Analisis Butir) */}
+        {/* 5. Navigation Tabs (Daftar Pengumpulan vs Rekap Analisis Butir vs Sistem) */}
         <div className="teacher-tabs-strip">
           <button
             type="button"
@@ -479,7 +514,14 @@ export default function TeacherDashboard() {
             className={`teacher-tab-btn ${activeTab === 'items' ? 'active' : ''}`}
             onClick={() => setActiveTab('items')}
           >
-            📊 Rekap Analisis Butir & Frekuensi (10 Butir)
+            📊 Rekap Analisis Butir &amp; Frekuensi (10 Butir)
+          </button>
+          <button
+            type="button"
+            className={`teacher-tab-btn ${activeTab === 'system' ? 'active' : ''}`}
+            onClick={() => setActiveTab('system')}
+          >
+            ⚙️ Sistem &amp; Integrasi Firebase {accountQueue.length > 0 && `(${accountQueue.length} Antrean)`}
           </button>
         </div>
 
@@ -813,6 +855,225 @@ export default function TeacherDashboard() {
               </table>
             </div>
           </section>
+        )}
+
+        {/* TAB 3: Sistem, Pengelolaan Data & Integrasi Firebase (Khusus Guru/Admin) */}
+        {activeTab === 'system' && (
+          <div className="teacher-system-wrapper">
+            {/* Notifikasi Tindakan Antrean */}
+            {queueNotice && (
+              <div className="teacher-alert-notice">
+                <span>{queueNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setQueueNotice('')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#1D4ED8',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Tutup
+                </button>
+              </div>
+            )}
+
+            {/* 1. Status Layanan Firebase & Cloud Firestore */}
+            <div className="teacher-system-card">
+              <div className="teacher-system-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.75rem' }}>{isCloudActive ? '🔥' : '⚙️'}</span>
+                  <div>
+                    <h3 className="teacher-system-title">
+                      Status Koneksi Firebase Authentication &amp; Cloud Firestore
+                    </h3>
+                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.825rem', color: '#64748B' }}>
+                      Penyimpanan real-time dan otentikasi diagnostik kelas kurikulum kimia.
+                    </p>
+                  </div>
+                </div>
+
+                <span
+                  style={{
+                    padding: '0.35rem 0.85rem',
+                    borderRadius: '9999px',
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
+                    backgroundColor: isCloudActive ? '#DCFCE7' : '#FEF3C7',
+                    color: isCloudActive ? '#16A34A' : '#D97706',
+                    border: `1px solid ${isCloudActive ? '#BBF7D0' : '#FDE68A'}`,
+                  }}
+                >
+                  {isCloudActive ? '✓ Terhubung ke Cloud Firestore' : '⚠️ Kunci .env.local Diperlukan'}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '1rem',
+                  marginTop: '1.25rem',
+                }}
+              >
+                <div style={{ padding: '1rem', borderRadius: '0.75rem', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                    Metode Autentikasi
+                  </span>
+                  <strong style={{ display: 'block', fontSize: '0.95rem', color: '#134E4A', marginTop: '0.25rem' }}>
+                    Google OAuth &amp; Email/Password
+                  </strong>
+                  <span style={{ fontSize: '0.75rem', color: '#059669', display: 'block', marginTop: '0.25rem' }}>
+                    ✓ Auto-provisioning Siswa Aktif
+                  </span>
+                </div>
+
+                <div style={{ padding: '1rem', borderRadius: '0.75rem', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                    Aturan Keamanan (Rules)
+                  </span>
+                  <strong style={{ display: 'block', fontSize: '0.95rem', color: '#134E4A', marginTop: '0.25rem' }}>
+                    Strict Role-Based &amp; Owner Only
+                  </strong>
+                  <span style={{ fontSize: '0.75rem', color: '#0F766E', display: 'block', marginTop: '0.25rem' }}>
+                    Token Validated: {user?.email}
+                  </span>
+                </div>
+
+                <div style={{ padding: '1rem', borderRadius: '0.75rem', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                    Versi Bank Soal
+                  </span>
+                  <strong style={{ display: 'block', fontSize: '0.95rem', color: '#134E4A', marginTop: '0.25rem' }}>
+                    v{SOAL_VERSION} (10 PG + 5 Esai HOTS)
+                  </strong>
+                  <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block', marginTop: '0.25rem' }}>
+                    Kompatibel dengan Snapshot Riwayat
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Antrean Sinkronisasi Akun (Admin & Pengampu) */}
+            <div className="teacher-system-card">
+              <div className="teacher-system-header">
+                <div>
+                  <h3 className="teacher-system-title">
+                    <span>📤</span>
+                    <span>Antrean Sinkronisasi Akun &amp; Pengiriman Data</span>
+                  </h3>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.825rem', color: '#64748B' }}>
+                    Mekanisme sinkronisasi data kuis idempoten (bebas duplikasi) untuk menjamin keutuhan data offline/online.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleProcessQueue}
+                  disabled={processingQueue || accountQueue.length === 0}
+                  style={{
+                    padding: '0.65rem 1.25rem',
+                    borderRadius: '0.75rem',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    backgroundColor: accountQueue.length > 0 ? '#1D4ED8' : '#F1F5F9',
+                    color: accountQueue.length > 0 ? '#FFFFFF' : '#94A3B8',
+                    border: 'none',
+                    cursor: accountQueue.length > 0 && !processingQueue ? 'pointer' : 'not-allowed',
+                    boxShadow: accountQueue.length > 0 ? '0 4px 12px rgba(29, 78, 216, 0.25)' : 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {processingQueue ? 'Mengirim Data...' : accountQueue.length > 0 ? `Kirim Sekarang (${accountQueue.length} Tertunda)` : 'Antrean Kosong (Semua Data Tersinkron)'}
+                </button>
+              </div>
+
+              {accountQueue.length > 0 ? (
+                <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '0.75rem', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#1E40AF', fontWeight: 600 }}>
+                    Terdapat <strong>{accountQueue.length} percobaan kuis</strong> yang tersimpan di antrean perangkat ini. Tekan tombol <em>Kirim Sekarang</em> untuk menyinkronkan seluruhnya ke Cloud Firestore.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ marginTop: '1rem', padding: '0.85rem 1rem', borderRadius: '0.75rem', backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: '#16A34A', fontSize: '1.1rem' }}>✓</span>
+                  <span style={{ fontSize: '0.825rem', color: '#166534', fontWeight: 600 }}>
+                    Semua hasil kuis pada sesi ini telah tersinkronisasi penuh ke Cloud Firestore tanpa ada antrean tertunda.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Panduan Konfigurasi Firebase Console & Environment Variables */}
+            <div className="teacher-system-card">
+              <div className="teacher-system-header">
+                <div>
+                  <h3 className="teacher-system-title">
+                    <span>🔑</span>
+                    <span>Panduan Konfigurasi Firebase Console &amp; File .env.local</span>
+                  </h3>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.825rem', color: '#64748B' }}>
+                    Dokumentasi teknis pengaturan variabel lingkungan server dan Netlify untuk pengampu/administrator.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowConfigGuide((prev) => !prev)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.75rem',
+                    backgroundColor: '#F0FDFA',
+                    color: '#0F766E',
+                    border: '1px solid #CCFBF1',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {showConfigGuide ? 'Sembunyikan Panduan ▲' : 'Buka Panduan Kunci ▼'}
+                </button>
+              </div>
+
+              {showConfigGuide && (
+                <div style={{ marginTop: '1rem' }}>
+                  <p style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '0.75rem', lineHeight: 1.6 }}>
+                    Buka <strong>Firebase Console</strong> di{' '}
+                    <a
+                      href="https://console.firebase.google.com"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: '#0F766E', fontWeight: 800, textDecoration: 'underline' }}
+                    >
+                      console.firebase.google.com
+                    </a>
+                    , pilih proyek Anda, lalu buka <em>Project Settings &gt; General &gt; Your apps (Web app)</em>. Salin variabel berikut ke file <code>.env.local</code> pada direktori utama atau pengaturan environment Netlify:
+                  </p>
+
+                  <pre className="teacher-code-block">
+{`VITE_FIREBASE_API_KEY=AIzaSy...
+VITE_FIREBASE_AUTH_DOMAIN=nama-proyek.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=nama-proyek
+VITE_FIREBASE_STORAGE_BUCKET=nama-proyek.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=1234567890
+VITE_FIREBASE_APP_ID=1:1234567890:web:abcdef...`}
+                  </pre>
+
+                  <div style={{ marginTop: '0.75rem', padding: '0.85rem 1rem', borderRadius: '0.75rem', backgroundColor: '#FFF9EC', border: '1px solid #FDE68A', fontSize: '0.8rem', color: '#78350F' }}>
+                    💡 <strong>Tips Keamanan Firestore &amp; Domain:</strong>
+                    <ul style={{ margin: '0.35rem 0 0 1.25rem', padding: 0, lineHeight: 1.6 }}>
+                      <li>Pastikan domain Netlify Anda (<code>the-secret-of-salt.netlify.app</code>) telah didaftarkan di <strong>Authentication &gt; Settings &gt; Authorized domains</strong>.</li>
+                      <li>Aktifkan <strong>Google Sign-In</strong> dan <strong>Email/Password</strong> pada tab <em>Authentication &gt; Sign-in method</em>.</li>
+                      <li>Deploy berkas <code>firestore.rules</code> agar hanya akun guru resmi yang diizinkan menginspeksi dan menilai submisi esai seluruh siswa.</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </main>
 

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
+import { isTeacherEmail } from './services/authService';
 import Navbar from './Navbar.jsx';
 import HeroSection from './HeroSection.jsx';
 import TopicCards from './TopicCards.jsx';
@@ -146,7 +147,7 @@ function TeacherRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/login" replace />;
   }
   const isAuthorizedTeacher =
-    user?.email?.toLowerCase().trim() === 'khoirun.nisa.2403316@students.um.ac.id' &&
+    Boolean(user?.email && isTeacherEmail(user.email)) &&
     user?.role === 'teacher';
 
   if (!isAuthorizedTeacher) {
