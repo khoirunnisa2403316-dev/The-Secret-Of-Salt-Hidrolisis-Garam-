@@ -4,21 +4,18 @@ import {
   getCurrentSession,
   loginUser,
   loginWithGoogle as authLoginWithGoogle,
+  checkGoogleRedirectResult,
+  processGoogleAuthUser,
   registerUser,
   logoutUser,
   requestPasswordReset,
   switchDemoAccount,
-  setSession,
   clearSession,
-  isTeacherEmail,
 } from '../services/authService';
 import {
   auth,
-  db,
   isFirebaseConfigured,
   onAuthStateChanged,
-  doc,
-  getDoc,
 } from '../services/firebase';
 
 export function AuthProvider({ children }) {
@@ -26,11 +23,22 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
 
-  // Real-time Firebase Authentication listener
+  // Real-time Firebase Authentication listener & Google redirect verification
   useEffect(() => {
     let unsubscribe = () => {};
 
     if (isFirebaseConfigured() && auth) {
+      // Check redirect result if returning from signInWithRedirect
+      checkGoogleRedirectResult()
+        .then((redirectSession) => {
+          if (redirectSession?.user) {
+            setSessionState(redirectSession);
+          }
+        })
+        .catch((err) => {
+          console.warn('[AuthProvider] checkGoogleRedirectResult notice:', err);
+        });
+
       unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
         if (fbUser) {
           // If we already have a session matching this user, keep it
@@ -39,35 +47,12 @@ export function AuthProvider({ children }) {
             return;
           }
 
-          // Fetch full profile from Firestore if available
-          const userRole = isTeacherEmail(fbUser.email) ? 'teacher' : 'student';
-          let profile = {
-            uid: fbUser.uid,
-            id: fbUser.uid,
-            email: fbUser.email,
-            fullName: fbUser.displayName || fbUser.email?.split('@')[0],
-            role: userRole,
-            classGrade: userRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F',
-            schoolName: 'SMA / MA Laboratorium',
-          };
-
-          if (db) {
-            try {
-              const snap = await getDoc(doc(db, 'users', fbUser.uid));
-              if (snap.exists()) {
-                const data = snap.data();
-                profile = { ...profile, ...data, role: data?.role || userRole };
-              }
-            } catch (err) {
-              const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
-              if (!isPermission) {
-                console.warn('Firestore profile load notice:', err?.message || err);
-              }
-            }
+          try {
+            const userSession = await processGoogleAuthUser(fbUser);
+            setSessionState(userSession);
+          } catch (err) {
+            console.warn('[AuthProvider] onAuthStateChanged user sync notice:', err);
           }
-
-          const newSession = setSession(profile, true);
-          setSessionState(newSession);
         } else {
           // User signed out in Firebase
           const current = getCurrentSession();
@@ -117,9 +102,12 @@ export function AuthProvider({ children }) {
     setIsLoading(true);
     setAuthError(null);
     try {
-      const newSession = await authLoginWithGoogle();
-      setSessionState(newSession);
-      return { success: true, user: newSession.user };
+      const res = await authLoginWithGoogle();
+      if (res?.redirecting) {
+        return { success: false, redirecting: true };
+      }
+      setSessionState(res);
+      return { success: true, user: res.user };
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Masuk dengan Google gagal.';
       setAuthError(msg);

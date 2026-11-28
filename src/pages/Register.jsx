@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
 import InputField from '../components/InputField';
@@ -13,7 +13,14 @@ import { useAuth } from '../context/useAuth';
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register, loginWithGoogle, isLoading, authError, clearError, isFirebaseConfigured } = useAuth();
+  const { user, isAuthenticated, register, loginWithGoogle, isLoading, authError, clearError, isFirebaseConfigured } = useAuth();
+
+  // Jika sudah terautentikasi (misal kembali dari pengalihan Google Auth), arahkan ke dashboard
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      navigate(user.role === 'teacher' ? '/teacher' : '/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -114,7 +121,10 @@ export default function Register() {
   const handleGoogleRegister = async () => {
     clearError();
     const res = await loginWithGoogle();
-    if (res.success) {
+    if (res?.redirecting) {
+      return;
+    }
+    if (res?.success) {
       setSuccessMessage('Berhasil mendaftar dengan akun Google! Mengarahkan...');
       setTimeout(() => {
         navigate(res.user?.role === 'teacher' ? '/teacher' : '/dashboard', { replace: true });

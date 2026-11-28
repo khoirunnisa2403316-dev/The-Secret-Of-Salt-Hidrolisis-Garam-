@@ -1,4 +1,4 @@
 /*
-  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Cross-Origin-Opener-Policy: unsafe-none
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff

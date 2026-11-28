@@ -16,6 +16,8 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   doc,
   setDoc,
   getDoc,
@@ -57,8 +59,15 @@ function translateFirebaseError(error) {
       return 'Format email tidak valid (contoh: nama@sekolah.sch.id).';
     case 'auth/operation-not-allowed':
       return 'Metode autentikasi (Email/Password atau Google) belum diaktifkan di Firebase Console (Authentication > Sign-in method).';
-    case 'auth/unauthorized-domain':
-      return 'Domain aplikasi ini belum ditambahkan ke daftar "Authorized domains" di Firebase Console (Authentication > Settings > Authorized domains).';
+    case 'auth/unauthorized-domain': {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'httpsthesecretofsalt.netlify.app';
+      return `Domain (${currentHost}) belum ditambahkan ke daftar "Authorized domains" di Firebase Console (Authentication > Settings > Authorized domains). Tambahkan domain tersebut agar login Google diizinkan.`;
+    }
+    case 'auth/popup-blocked':
+      return 'Jendela popup Google terblokir oleh browser. Harap izinkan pop-up pada peramban Anda untuk melanjutkan login Google.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Proses masuk dengan Google dibatalkan oleh pengguna.';
     case 'auth/configuration-not-found':
       return 'Konfigurasi penyedia autentikasi belum ditemukan di Firebase Console.';
     case 'auth/weak-password':
@@ -441,11 +450,131 @@ export async function requestPasswordReset(email) {
 }
 
 /**
+ * Process authenticated Firebase user from Google Sign-In.
+ * Memastikan kesesuaian:
+ * 1. Email resmi guru selalu mendapatkan role 'teacher'.
+ * 2. Pengguna lama tetap mempertahankan data profil, role, dan riwayat yang tersimpan.
+ * 3. Pengguna Google baru secara otomatis didaftarkan dan disimpan ke Cloud Firestore ('users/{uid}')
+ *    serta registry lokal sebagai role 'student' tanpa ditolak "belum terdaftar".
+ */
+export async function processGoogleAuthUser(fbUser) {
+  if (!fbUser?.email) {
+    throw new Error('Akun Google tidak memiliki alamat email yang valid.');
+  }
+
+  const cleanEmail = fbUser.email.trim().toLowerCase();
+  const isTeacher = isTeacherEmail(cleanEmail);
+
+  let matchedUser = null;
+
+  // 1. Periksa data pengguna di Cloud Firestore (koleksi "users")
+  if (db) {
+    try {
+      const docSnap = await getDoc(doc(db, 'users', fbUser.uid));
+      if (docSnap.exists()) {
+        matchedUser = { id: docSnap.id, uid: fbUser.uid, ...docSnap.data() };
+      } else {
+        try {
+          const usersRef = collection(db, 'users');
+          const q = query(usersRef, where('email', '==', cleanEmail));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const d = snap.docs[0];
+            matchedUser = { id: d.id, uid: fbUser.uid, ...d.data() };
+          }
+        } catch {
+          // Abaikan jika query dibatasi security rules
+        }
+      }
+    } catch (err) {
+      const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
+      if (!isPermission) {
+        console.warn('[AuthService] Firestore user check notice:', err?.message || err);
+      }
+    }
+  }
+
+  // 2. Periksa di data registry pengguna lokal
+  if (!matchedUser) {
+    const localUsers = getUsersRegistry();
+    const found = localUsers.find(
+      (u) => (u.email || '').trim().toLowerCase() === cleanEmail
+    );
+    if (found) {
+      matchedUser = found;
+    }
+  }
+
+  // 3. Tentukan role dan metadata profil
+  const effectiveRole = isTeacher || matchedUser?.role === 'teacher' ? 'teacher' : 'student';
+  const defaultFullName = fbUser.displayName || cleanEmail.split('@')[0];
+
+  const userProfile = {
+    uid: fbUser.uid,
+    id: matchedUser?.id || fbUser.uid,
+    email: cleanEmail,
+    fullName: matchedUser?.fullName || defaultFullName,
+    role: effectiveRole,
+    classGrade: matchedUser?.classGrade || (effectiveRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI Fase F'),
+    schoolName: matchedUser?.schoolName || (effectiveRole === 'teacher' ? 'SMA Negeri 1 Pembelajaran' : 'SMA / MA Laboratorium'),
+    nip: matchedUser?.nip || (effectiveRole === 'teacher' ? '2403316' : undefined),
+    authProvider: 'google',
+    photoURL: fbUser.photoURL || undefined,
+  };
+
+  // 4. Sinkronkan profil ke registry lokal
+  try {
+    const localUsers = getUsersRegistry();
+    const existingIdx = localUsers.findIndex(
+      (u) => (u.email || '').trim().toLowerCase() === cleanEmail || u.id === userProfile.id || u.uid === userProfile.uid
+    );
+    if (existingIdx >= 0) {
+      localUsers[existingIdx] = {
+        ...localUsers[existingIdx],
+        ...userProfile,
+        lastLoginAt: new Date().toISOString(),
+      };
+    } else {
+      localUsers.push({
+        ...userProfile,
+        createdAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+      });
+    }
+    saveUsersRegistry(localUsers);
+  } catch (regErr) {
+    console.warn('[AuthService] Local registry sync notice:', regErr);
+  }
+
+  // 5. Simpan / perbarui ke Cloud Firestore dokumen "users/{fbUser.uid}"
+  if (db) {
+    try {
+      const userDocRef = doc(db, 'users', fbUser.uid);
+      const firestoreData = {
+        ...userProfile,
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      if (!matchedUser) {
+        firestoreData.createdAt = serverTimestamp();
+      }
+      await setDoc(userDocRef, firestoreData, { merge: true });
+    } catch (fsErr) {
+      const isPermission = fsErr?.code === 'permission-denied' || fsErr?.message?.toLowerCase().includes('permission');
+      if (!isPermission) {
+        console.warn('[AuthService] Firestore profile save notice:', fsErr?.message || fsErr);
+      }
+    }
+  }
+
+  // 6. Buat sesi aktif dan kembalikan sesi
+  return setSession(userProfile, true);
+}
+
+/**
  * Sign in using Firebase Google Authentication
  * Menjalankan autentikasi Google resmi melalui Firebase GoogleAuthProvider.
- * Mengidentifikasi email Google yang dipilih, mencocokkannya dengan data pengguna
- * di database untuk menentukan role (Guru atau Siswa), serta memvalidasi jika
- * akun belum terdaftar di database.
+ * Mendukung signInWithPopup dengan fallback transparan ke signInWithRedirect jika popup terblokir.
  */
 export async function loginWithGoogle() {
   if (!isFirebaseConfigured() || !auth) {
@@ -454,134 +583,68 @@ export async function loginWithGoogle() {
     );
   }
 
-  try {
-    // 1. Bersihkan status auth lama sebelum membuka popup agar Google selalu menampilkan pilihan akun
-    if (auth.currentUser) {
-      try {
-        await signOut(auth);
-      } catch (e) {
-        console.warn('Pre-auth signOut notice:', e);
-      }
-    }
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
 
-    // 2. Tampilkan pemilihan akun Google melalui Firebase Google Authentication
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
+  try {
     const result = await signInWithPopup(auth, provider);
-    const fbUser = result.user;
+    const fbUser = result?.user;
 
     if (!fbUser?.email) {
       throw new Error('Akun Google tidak memiliki alamat email yang valid.');
     }
 
-    const cleanEmail = fbUser.email.trim().toLowerCase();
-
-    // 3. Cocokkan email dengan data pengguna yang tersimpan di database
-    let matchedUser = null;
-
-    // A. Periksa di Cloud Firestore (koleksi "users")
-    if (db) {
-      try {
-        // Cek langsung dokumen berdasarkan fbUser.uid terlebih dahulu (sesuai aturan keamanan Firestore)
-        const docSnap = await getDoc(doc(db, 'users', fbUser.uid));
-        if (docSnap.exists()) {
-          matchedUser = { id: docSnap.id, uid: fbUser.uid, ...docSnap.data() };
-        } else {
-          // Fallback pencarian dokumen via email jika diizinkan aturan keamanan
-          try {
-            const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('email', '==', cleanEmail));
-            const snap = await getDocs(q);
-            if (!snap.empty) {
-              const d = snap.docs[0];
-              matchedUser = { id: d.id, uid: fbUser.uid, ...d.data() };
-            }
-          } catch {
-            // Abaikan error query jika dibatasi aturan Firestore
-          }
-        }
-      } catch (err) {
-        const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
-        if (!isPermission) {
-          console.warn('Firestore database check notice:', err?.message || err);
-        }
-      }
-    }
-
-    // B. Periksa di data registry pengguna tersimpan (getUsersRegistry)
-    if (!matchedUser) {
-      const localUsers = getUsersRegistry();
-      const found = localUsers.find(
-        (u) => (u.email || '').trim().toLowerCase() === cleanEmail
-      );
-      if (found) {
-        matchedUser = found;
-      }
-    }
-
-    // C. Verifikasi identitas email institusi Guru resmi
-    if (!matchedUser && isTeacherEmail(cleanEmail)) {
-      matchedUser = {
-        id: fbUser.uid || 'usr_teacher_official',
-        email: cleanEmail,
-        fullName: fbUser.displayName || "Khoirun Nisa' Rakhma, S.Pd.",
-        role: 'teacher',
-        classGrade: 'XI-MIPA-1 & XI-MIPA-2',
-        schoolName: 'SMA Negeri 1 Pembelajaran',
-        nip: '2403316',
-      };
-    }
-
-    // 4. Jika email belum terdaftar di database, batalkan sesi dan beri tahu pengguna
-    if (!matchedUser) {
-      try {
-        await signOut(auth);
-      } catch {}
-
-      throw new Error(
-        `Akun Google (${fbUser.email}) belum terdaftar. Silakan buat akun baru terlebih dahulu atau gunakan email yang telah terdaftar.`
-      );
-    }
-
-    // 5. Tentukan role Guru atau Siswa dari data pengguna yang cocok di database
-    const isTeacher = isTeacherEmail(cleanEmail) || matchedUser.role === 'teacher';
-    const effectiveRole = isTeacher ? 'teacher' : 'student';
-
-    const userProfile = {
-      uid: fbUser.uid,
-      id: matchedUser.id || fbUser.uid,
-      email: fbUser.email,
-      fullName: matchedUser.fullName || fbUser.displayName || fbUser.email.split('@')[0],
-      role: effectiveRole,
-      classGrade: matchedUser.classGrade || (effectiveRole === 'teacher' ? 'XI-MIPA-1 & XI-MIPA-2' : 'XI-MIPA-1'),
-      schoolName: matchedUser.schoolName || 'SMA Negeri 1 Pembelajaran',
-      nip: matchedUser.nip || undefined,
-      authProvider: 'google',
-    };
-
-    // Update lastLoginAt di Firestore jika tersedia
-    if (db) {
-      try {
-        const userDocRef = doc(db, 'users', fbUser.uid);
-        await setDoc(userDocRef, { ...userProfile, lastLoginAt: serverTimestamp() }, { merge: true });
-      } catch (err) {
-        const isPermission = err?.code === 'permission-denied' || err?.message?.toLowerCase().includes('permission');
-        if (!isPermission) {
-          console.warn('Firestore lastLoginAt notice:', err?.message || err);
-        }
-      }
-    }
-
-    // 6. Buat sesi untuk akun yang benar-benar dipilih dan cocok di database
-    return setSession(userProfile, true);
+    return await processGoogleAuthUser(fbUser);
   } catch (err) {
+    console.error('[AuthService] Google Sign-In Error:', err);
+
+    // Fallback otomatis ke signInWithRedirect jika browser memblokir popup
+    if (err?.code === 'auth/popup-blocked') {
+      console.info('[AuthService] Popup Google terblokir. Mencoba fallback ke signInWithRedirect...');
+      try {
+        await signInWithRedirect(auth, provider);
+        return { redirecting: true };
+      } catch (redirectErr) {
+        console.error('[AuthService] Fallback redirect gagal:', redirectErr);
+        throw new Error('Jendela popup Google terblokir oleh browser. Harap izinkan pop-up atau gunakan browser standar.');
+      }
+    }
+
     if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
       throw new Error('Proses masuk dengan Google dibatalkan oleh pengguna.');
-    } else if (err?.code === 'auth/popup-blocked') {
-      throw new Error('Jendela popup Google terblokir oleh browser. Izinkan pop-up untuk melanjutkan.');
     }
+
+    if (err?.code === 'auth/unauthorized-domain') {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'httpsthesecretofsalt.netlify.app';
+      throw new Error(
+        `Domain aplikasi (${currentHost}) belum terdaftar di "Authorized domains" Firebase Console. Buka Firebase Console > Authentication > Settings > Authorized domains, lalu tambahkan domain ini.`
+      );
+    }
+
     throw new Error(translateFirebaseError(err));
   }
+}
+
+/**
+ * Memeriksa hasil pengalihan Google Redirect Authentication (jika alur redirect digunakan)
+ */
+export async function checkGoogleRedirectResult() {
+  if (!isFirebaseConfigured() || !auth) return null;
+  try {
+    const result = await getRedirectResult(auth);
+    if (result?.user) {
+      return await processGoogleAuthUser(result.user);
+    }
+  } catch (err) {
+    console.error('[AuthService] checkGoogleRedirectResult error:', err);
+    if (err?.code === 'auth/unauthorized-domain') {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'httpsthesecretofsalt.netlify.app';
+      throw new Error(
+        `Domain aplikasi (${currentHost}) belum terdaftar di Authorized domains Firebase Console.`
+      );
+    }
+  }
+  return null;
 }
 
 /**
