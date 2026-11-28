@@ -1,0 +1,1041 @@
+/* ==========================================================================
+   MATERI HIDROLISIS GARAM LENGKAP - STYLESHEET
+   Adheres to PRD.md & AGENTS.md Visual Identity:
+   Fresh Teal (#20B8AA), Deep Navy (#243B64), Sunny Yellow (#FFD166),
+   Coral (#FF887A), Soft Purple (#A995F5), Warm Ivory (#FFF9EC)
+   ========================================================================== */
+
+.materi-section {
+  padding: 80px 0 60px;
+  position: relative;
+  background: linear-gradient(180deg, #F0FDFA 0%, #FFFFFF 30%, #F8FAFC 100%);
+  border-top: 1px solid #E2E8F0;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.materi-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Header */
+.materi-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.materi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(32, 184, 170, 0.12);
+  color: #0F766E;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+  border: 1px solid rgba(32, 184, 170, 0.3);
+}
+
+.materi-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #183153;
+  line-height: 1.25;
+  margin-bottom: 14px;
+}
+
+.materi-title .highlight-teal {
+  color: #0F766E;
+  background: linear-gradient(120deg, rgba(32, 184, 170, 0.15) 0%, rgba(94, 234, 212, 0.25) 100%);
+  padding: 2px 10px;
+  border-radius: 8px;
+}
+
+.materi-subtitle {
+  max-width: 780px;
+  margin: 0 auto;
+  color: #4A5B78;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+/* Navigation Tabs */
+.materi-nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+  padding: 6px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(36, 59, 100, 0.04);
+}
+
+.materi-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #4A5B78;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  user-select: none;
+}
+
+.materi-tab-btn:hover {
+  color: #0F766E;
+  background: rgba(32, 184, 170, 0.08);
+}
+
+.materi-tab-btn.active {
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #0F766E 0%, #164E63 100%);
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.28);
+  border-color: transparent;
+}
+
+.materi-tab-btn .tab-icon {
+  font-size: 1.15rem;
+}
+
+/* Card Container */
+.materi-card {
+  background: #FFFFFF;
+  border-radius: 24px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 10px 30px rgba(36, 59, 100, 0.06);
+  padding: 36px;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .materi-card {
+    padding: 22px 16px;
+  }
+  .materi-title {
+    font-size: 1.75rem;
+  }
+}
+
+/* Tab 1: Konsep Dasar Grid */
+.concept-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.concept-box {
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 18px;
+  padding: 24px;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.concept-box:hover {
+  transform: translateY(-3px);
+  border-color: #20B8AA;
+  box-shadow: 0 8px 24px rgba(32, 184, 170, 0.12);
+  background: #FFFFFF;
+}
+
+.concept-box-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.concept-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.concept-box-title {
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #183153;
+  margin: 0;
+}
+
+.concept-box-body {
+  font-size: 0.94rem;
+  color: #4A5B78;
+  line-height: 1.6;
+}
+
+.concept-formula-pill {
+  display: inline-block;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1E40AF;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+/* Comparison Highlight Box: Pelarutan vs Hidrolisis */
+.comparison-box {
+  background: linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 100%);
+  border: 2px solid #5EEAD4;
+  border-radius: 20px;
+  padding: 26px;
+  margin-top: 24px;
+}
+
+.comparison-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: #0F766E;
+  margin-bottom: 16px;
+}
+
+.comparison-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .comparison-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.comparison-col {
+  background: #FFFFFF;
+  border-radius: 14px;
+  padding: 18px;
+  border: 1px solid #CCFBF1;
+}
+
+.comparison-col h4 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.comparison-col.dissolution h4 {
+  color: #164E63;
+}
+
+.comparison-col.hydrolysis h4 {
+  color: #0F766E;
+}
+
+.comparison-col p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.55;
+}
+
+/* Tab 2: 4 Jenis Garam Selector */
+.salt-type-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 900px) {
+  .salt-type-selector {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .salt-type-selector {
+    grid-template-columns: 1fr;
+  }
+}
+
+.salt-type-btn {
+  background: #F8FAFC;
+  border: 2px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.salt-type-btn:hover {
+  background: #FFFFFF;
+  border-color: #20B8AA;
+  transform: translateY(-2px);
+}
+
+.salt-type-btn.active {
+  background: #FFFFFF;
+  border-color: #0F766E;
+  box-shadow: 0 6px 18px rgba(15, 118, 110, 0.16);
+}
+
+.salt-type-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.salt-type-name {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #183153;
+}
+
+.salt-type-ph {
+  font-size: 0.84rem;
+  color: #64748B;
+  font-weight: 600;
+}
+
+/* Active Salt Detail View */
+.salt-detail-panel {
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 20px;
+  padding: 28px;
+}
+
+.salt-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  border-bottom: 1px solid #E2E8F0;
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+}
+
+.salt-detail-title-group h3 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #183153;
+  margin: 0 0 4px 0;
+}
+
+.salt-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.salt-origin-badge {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 8px;
+}
+
+.salt-grid-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.salt-info-card {
+  background: #FFFFFF;
+  border-radius: 14px;
+  padding: 18px;
+  border: 1px solid #E2E8F0;
+}
+
+.salt-info-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748B;
+  margin-bottom: 6px;
+}
+
+.salt-info-value {
+  font-size: 0.96rem;
+  font-weight: 600;
+  color: #1E293B;
+  line-height: 1.5;
+}
+
+.chemical-equation-box {
+  background: #183153;
+  color: #5EEAD4;
+  border-radius: 14px;
+  padding: 16px 20px;
+  font-family: 'Fira Code', monospace;
+  font-size: 1.02rem;
+  font-weight: 600;
+  overflow-x: auto;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.2);
+  margin-top: 8px;
+}
+
+/* Tab 3: Johnstone's Triangle */
+.johnstone-intro {
+  text-align: center;
+  max-width: 760px;
+  margin: 0 auto 30px auto;
+  color: #4A5B78;
+}
+
+.johnstone-triangle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+@media (max-width: 900px) {
+  .johnstone-triangle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.johnstone-card {
+  background: #FFFFFF;
+  border-radius: 20px;
+  border: 2px solid #E2E8F0;
+  padding: 24px;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.johnstone-card.macro {
+  border-color: #20B8AA;
+  background: linear-gradient(180deg, rgba(32, 184, 170, 0.05) 0%, #FFFFFF 40%);
+}
+
+.johnstone-card.submicro {
+  border-color: #FF887A;
+  background: linear-gradient(180deg, rgba(255, 136, 122, 0.06) 0%, #FFFFFF 40%);
+}
+
+.johnstone-card.symbolic {
+  border-color: #A995F5;
+  background: linear-gradient(180deg, rgba(169, 149, 245, 0.06) 0%, #FFFFFF 40%);
+}
+
+.johnstone-level-tag {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  display: inline-block;
+}
+
+.johnstone-card.macro .johnstone-level-tag {
+  background: rgba(32, 184, 170, 0.15);
+  color: #0F766E;
+}
+
+.johnstone-card.submicro .johnstone-level-tag {
+  background: rgba(255, 136, 122, 0.15);
+  color: #C53030;
+}
+
+.johnstone-card.symbolic .johnstone-level-tag {
+  background: rgba(169, 149, 245, 0.18);
+  color: #6B46C1;
+}
+
+.johnstone-card h4 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #183153;
+  margin: 0 0 10px 0;
+}
+
+.johnstone-card p {
+  font-size: 0.92rem;
+  color: #4A5B78;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.johnstone-visual {
+  margin-top: 16px;
+  padding: 14px;
+  background: #F8FAFC;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+}
+
+/* Tab 4: Formula Grid */
+.formula-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-bottom: 30px;
+}
+
+.formula-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+}
+
+.formula-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #F1F5F9;
+  padding-bottom: 12px;
+}
+
+.formula-card-title {
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #183153;
+  margin: 0;
+}
+
+.formula-display {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 12px 0;
+  font-family: 'Fira Code', monospace;
+  font-size: 1.05rem;
+  color: #0F766E;
+  font-weight: 700;
+  text-align: center;
+}
+
+.formula-notes {
+  font-size: 0.88rem;
+  color: #64748B;
+  line-height: 1.5;
+}
+
+.valence-warning-box {
+  background: #FEF3C7;
+  border: 1.5px solid #FCD34D;
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.valence-icon {
+  font-size: 1.5rem;
+}
+
+.valence-content h4 {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #92400E;
+  margin: 0 0 6px 0;
+}
+
+.valence-content p {
+  font-size: 0.9rem;
+  color: #78350F;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Ka/Kb SMA-Friendly Controls & Display */
+.ka-kb-preset-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.ka-kb-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.ka-kb-preset-btn:hover {
+  border-color: #0F766E;
+  color: #0F766E;
+  background: #F0FDFA;
+}
+
+.ka-kb-preset-btn.active {
+  background: linear-gradient(135deg, #0F766E 0%, #164E63 100%);
+  color: #FFFFFF;
+  border-color: #0F766E;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+}
+
+.ka-kb-preview-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-top: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.ka-kb-main-format {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 1.22rem;
+  font-weight: 800;
+  color: #0F766E;
+  line-height: 1.3;
+}
+
+.ka-kb-symbol {
+  color: #183153;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.ka-kb-value-highlight {
+  font-family: 'Fira Code', monospace;
+  background: #F0FDFA;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #CCFBF1;
+}
+
+.ka-kb-decimal-helper {
+  font-size: 0.82rem;
+  color: #64748B;
+  font-weight: 600;
+  font-family: 'Fira Code', monospace;
+  margin-top: 4px;
+}
+
+/* Strength Indicator Bar */
+.ka-kb-strength-container {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+.strength-bar-track {
+  width: 100%;
+  height: 8px;
+  background: #E2E8F0;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.strength-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.35s ease, background-color 0.35s ease;
+}
+
+.strength-bar-fill.weak {
+  background: #16A34A;
+}
+
+.strength-bar-fill.moderate {
+  background: #EA580C;
+}
+
+.strength-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.84rem;
+}
+
+.strength-label-text {
+  color: #475569;
+  font-weight: 600;
+}
+
+.strength-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 800;
+  font-size: 0.78rem;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.strength-badge.weak {
+  background: #DCFCE7;
+  color: #166534;
+  border: 1px solid #BBF7D0;
+}
+
+.strength-badge.moderate {
+  background: #FFEDD5;
+  color: #9A3412;
+  border: 1px solid #FED7AA;
+}
+
+/* Light Blue Info Box */
+.ka-kb-info-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #E0F2FE;
+  border: 1.5px solid #BAE6FD;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.info-callout-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.info-callout-text {
+  font-size: 0.86rem;
+  color: #0369A1;
+  line-height: 1.5;
+  margin: 0;
+  font-weight: 500;
+}
+
+.info-callout-text strong {
+  font-weight: 800;
+  color: #0284C7;
+}
+
+/* Tab 5: Simulator Kalkulator Interaktif */
+.calculator-panel {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 28px;
+}
+
+@media (max-width: 900px) {
+  .calculator-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calculator-inputs {
+  background: #F8FAFC;
+  border-radius: 20px;
+  border: 1.5px solid #E2E8F0;
+  padding: 24px;
+}
+
+.calculator-outputs {
+  background: #FFFFFF;
+  border-radius: 20px;
+  border: 2px solid #5EEAD4;
+  padding: 26px;
+  box-shadow: 0 8px 24px rgba(32, 184, 170, 0.1);
+}
+
+.calc-preset-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.calc-preset-btn {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.calc-preset-btn:hover {
+  border-color: #0F766E;
+  color: #0F766E;
+}
+
+.calc-preset-btn.active {
+  background: #0F766E;
+  color: #FFFFFF;
+  border-color: #0F766E;
+}
+
+.calc-field-group {
+  margin-bottom: 16px;
+}
+
+.calc-field-label {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.calc-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #CBD5E1;
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: #1E293B;
+  background: #FFFFFF;
+  transition: border-color 0.2s ease;
+}
+
+.calc-input:focus {
+  outline: none;
+  border-color: #0F766E;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+
+/* Results Showcase */
+.calc-result-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  color: #FFFFFF;
+}
+
+.calc-result-hero.acidic {
+  background: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%);
+}
+
+.calc-result-hero.basic {
+  background: linear-gradient(135deg, #0F766E 0%, #164E63 100%);
+}
+
+.calc-result-hero.neutral {
+  background: linear-gradient(135deg, #10B981 0%, #047857 100%);
+}
+
+.calc-ph-number {
+  font-size: 2.5rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.calc-nature-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.calc-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.calc-step-item {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.calc-step-num {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #0F766E;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.calc-step-math {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+/* Tab 6: Aplikasi & Miskonsepsi */
+.apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 34px;
+}
+
+.app-item-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 18px;
+  padding: 22px;
+  transition: all 0.22s ease;
+}
+
+.app-item-card:hover {
+  transform: translateY(-3px);
+  border-color: #20B8AA;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+}
+
+.app-icon {
+  font-size: 2rem;
+  margin-bottom: 12px;
+}
+
+.app-item-card h4 {
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #183153;
+  margin: 0 0 6px 0;
+}
+
+.app-salt-tag {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #EFF6FF;
+  color: #1E40AF;
+  margin-bottom: 10px;
+}
+
+.app-item-card p {
+  font-size: 0.9rem;
+  color: #4A5B78;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* Misconception Buster Section */
+.misconception-section {
+  border-top: 1px solid #E2E8F0;
+  padding-top: 28px;
+}
+
+.misconception-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #DC2626;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.misconception-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 18px;
+}
+
+.misconception-card {
+  background: #FFF5F5;
+  border: 1.5px solid #FED7D7;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.misconception-wrong {
+  color: #9B2C2C;
+  font-size: 0.92rem;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.misconception-right {
+  color: #22543D;
+  background: #F0FFF4;
+  border: 1px solid #C6F6D5;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Subtopic Citation Tag */
+.materi-subtopic-citation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #64748B;
+  font-style: italic;
+  margin-bottom: 16px;
+  background: #F8FAFC;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border-left: 3px solid #94A3B8;
+}
+
+.materi-subtopic-citation .citation-icon {
+  font-size: 0.9rem;
+  font-style: normal;
+}
+
+/* Preset Ka/Kb Constant Note */
+.materi-preset-note {
+  font-size: 0.82rem;
+  color: #475569;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 10px;
+  line-height: 1.45;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+

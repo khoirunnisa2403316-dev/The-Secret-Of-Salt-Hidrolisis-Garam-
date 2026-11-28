@@ -38,7 +38,7 @@ export default function Navbar({ onStartClick }) {
   // Track active section as user scrolls
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['beranda', 'topik-prasyarat', 'lab-interaktif', 'kuis-modul-1', 'tentang'];
+      const sections = ['beranda', 'topik-prasyarat', 'materi-hidrolisis', 'lab-interaktif', 'kuis-modul-1', 'tentang'];
       const scrollPosition = window.scrollY + 140;
 
       for (let i = sections.length - 1; i >= 0; i--) {
@@ -69,6 +69,7 @@ export default function Navbar({ onStartClick }) {
   const navLinks = [
     { label: 'Beranda', href: '#beranda', icon: '🏠' },
     { label: 'Topik Prasyarat', href: '#topik-prasyarat', icon: '📖' },
+    { label: 'Materi Lengkap', href: '#materi-hidrolisis', icon: '📚' },
     { label: 'Lab Maya & Simulasi', href: '#lab-interaktif', icon: '🧪' },
     { label: 'Kuis Modul 1', href: '#kuis-modul-1', icon: '🎯' },
     { label: 'Tentang Media', href: '#tentang', icon: 'ℹ️' },
