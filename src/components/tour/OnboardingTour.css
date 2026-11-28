@@ -1,43 +1,46 @@
 /* ==========================================================================
    ONBOARDING TOUR STYLING — THE SECRET OF SALT
    Adheres to PRD & AGENTS.md Visual Identity & Responsive Mobile Guidelines:
-   - Fresh Teal (#20B8AA), Deep Navy (#243B64), Sunny Yellow (#FFD166)
-   - Sticky Navigation Footer & Scrollable Content Body (Anti-cutoff on Mobile)
-   - max-height: calc(100dvh - 32px) with safe area clearance
+   - Fresh Teal (#20B8AA / #0F766E), Deep Navy (#183153 / #243B64), Sunny Yellow (#FFD166)
+   - Dynamic Smart Positioning (Follows Spotlight, Never Covers Target)
+   - Ultra-compact Footprint (Leaves > 55-65% Screen Area Visible)
+   - Internal Scrollable Body & Sticky Nav Footer
+   - 7-Segment Horizontal Progress Indicator
+   - Anti-collision Safe Clearance for Netlify badge & Floating UI
    ========================================================================== */
 
-/* 1. Global Container */
+/* 1. Global Overlay Container */
 .tour-overlay-container {
   position: fixed;
   inset: 0;
-  z-index: 99999;
+  z-index: 99999999;
   pointer-events: auto;
   overflow: hidden;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
-/* 2. Backdrop Dimmer */
+/* 2. Semi-Transparent Backdrop Dimmer */
 .tour-backdrop {
   position: fixed;
   inset: 0;
   background-color: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  transition: opacity 0.3s ease;
+  backdrop-filter: blur(2.5px);
+  -webkit-backdrop-filter: blur(2.5px);
+  transition: opacity 0.25s ease;
   z-index: 1;
 }
 
 /* 3. Spotlight Cutout Highlight Box */
 .tour-spotlight {
   position: absolute;
-  border-radius: 18px;
+  border-radius: 14px;
   border: 2.5px solid #20B8AA;
   box-shadow: 
     0 0 0 9999px rgba(15, 23, 42, 0.72),
-    0 0 24px rgba(32, 184, 170, 0.65),
-    inset 0 0 12px rgba(32, 184, 170, 0.2);
+    0 0 22px rgba(32, 184, 170, 0.75),
+    inset 0 0 10px rgba(32, 184, 170, 0.25);
   pointer-events: none;
-  transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: all 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   z-index: 2;
   animation: tour-spotlight-pulse 2.2s infinite ease-in-out;
 }
@@ -47,104 +50,153 @@
     border-color: #20B8AA;
     box-shadow: 
       0 0 0 9999px rgba(15, 23, 42, 0.72),
-      0 0 20px rgba(32, 184, 170, 0.55),
-      inset 0 0 8px rgba(32, 184, 170, 0.15);
+      0 0 18px rgba(32, 184, 170, 0.6),
+      inset 0 0 6px rgba(32, 184, 170, 0.15);
   }
   50% {
     border-color: #5EEAD4;
     box-shadow: 
       0 0 0 9999px rgba(15, 23, 42, 0.72),
-      0 0 32px rgba(94, 234, 212, 0.8),
-      inset 0 0 16px rgba(94, 234, 212, 0.3);
+      0 0 30px rgba(94, 234, 212, 0.85),
+      inset 0 0 14px rgba(94, 234, 212, 0.3);
   }
 }
 
-/* 4. Tour Modal Card (Desktop default) */
+/* 4. Compact Tour Modal Card (Dynamic Smart Positioning) */
 .tour-modal-card {
-  position: absolute;
-  z-index: 10;
-  width: min(440px, calc(100vw - 32px));
-  max-height: min(540px, calc(100dvh - 32px));
-  max-height: min(540px, calc(100vh - 32px));
+  position: fixed;
+  z-index: 10000000;
+  width: min(370px, calc(100vw - 24px));
+  max-height: min(420px, calc(100dvh - 24px));
+  max-height: min(420px, calc(100vh - 24px));
   background: #FFFFFF;
-  border-radius: 22px;
-  padding: 20px 22px 16px;
+  border-radius: 18px;
+  padding: 14px 16px 10px;
   box-shadow: 
-    0 24px 48px -12px rgba(0, 0, 0, 0.28),
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 0 0 1px rgba(226, 232, 240, 0.9);
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    0 20px 48px -10px rgba(0, 0, 0, 0.38),
+    0 4px 14px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(226, 232, 240, 0.95);
+  transition: top 0.22s ease-out, left 0.22s ease-out, box-shadow 0.2s ease;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-/* Header: Badge & Close Button */
+/* 5. Header: Title + Close Button, Step Label, and 7-Segment Progress Bar */
 .tour-modal-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 5px;
   margin-bottom: 8px;
   flex-shrink: 0;
 }
 
-.tour-badge-pill {
-  display: inline-flex;
+.tour-header-title-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.tour-title-wrap {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  background: #F0FDFA;
-  color: #0F766E;
-  border: 1px solid #CCFBF1;
-  padding: 4px 12px;
-  border-radius: 9999px;
-  font-size: 0.78rem;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tour-title-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tour-title {
+  margin: 0;
+  font-size: 0.96rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
+  color: #183153;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .tour-close-btn {
-  background: transparent;
+  background: #F1F5F9;
   border: none;
-  color: #94A3B8;
-  font-size: 1.15rem;
-  width: 32px;
-  height: 32px;
+  color: #64748B;
+  font-size: 0.9rem;
+  font-weight: 700;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
   transition: all 0.2s ease;
 }
 
 .tour-close-btn:hover {
-  background: #F1F5F9;
+  background: #E2E8F0;
   color: #0F172A;
+  transform: scale(1.06);
 }
 
-/* Horizontal Progress Bar */
-.tour-progress-track {
-  width: 100%;
-  height: 5px;
-  background: #E2E8F0;
+.tour-step-label-row {
+  display: flex;
+  align-items: center;
+}
+
+.tour-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #F0FDFA;
+  color: #0F766E;
+  border: 1px solid #CCFBF1;
+  padding: 2px 8px;
   border-radius: 9999px;
-  overflow: hidden;
-  margin-bottom: 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* 7 Horizontal Segmented Progress Bars */
+.tour-segments-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 2px;
   flex-shrink: 0;
 }
 
-.tour-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #0F766E 0%, #20B8AA 100%);
+.tour-segment-bar {
+  flex: 1;
+  height: 3px;
+  background-color: #E2E8F0;
   border-radius: 9999px;
-  transition: width 0.35s ease;
+  transition: all 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* 5. Scrollable Modal Body Content */
+.tour-segment-bar.completed {
+  background-color: #0F766E;
+}
+
+.tour-segment-bar.active {
+  background: linear-gradient(90deg, #0F766E 0%, #20B8AA 100%);
+  box-shadow: 0 0 6px rgba(32, 184, 170, 0.45);
+}
+
+/* 6. Scrollable Modal Body Content (Strict Height Limit with Internal Scroll) */
 .tour-modal-body {
   flex: 1 1 auto;
   min-height: 0;
+  max-height: 125px;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 4px;
@@ -153,7 +205,7 @@
 
 /* Body Scrollbar Styling */
 .tour-modal-body::-webkit-scrollbar {
-  width: 4px;
+  width: 3.5px;
 }
 
 .tour-modal-body::-webkit-scrollbar-track {
@@ -169,73 +221,53 @@
   background: #94A3B8;
 }
 
-/* Title & Description */
-.tour-title-wrap {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.tour-title-icon {
-  font-size: 1.35rem;
-  line-height: 1.2;
-  flex-shrink: 0;
-}
-
-.tour-title {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: #183153;
-  line-height: 1.35;
-}
-
+/* Description */
 .tour-description {
-  margin: 0 0 12px 0;
-  font-size: 0.865rem;
+  margin: 0 0 8px 0;
+  font-size: 0.82rem;
   color: #475569;
-  line-height: 1.5;
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 /* Tips Box */
 .tour-tips-box {
   background: #FFF9EC;
   border: 1px solid #FDE68A;
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin-bottom: 4px;
+  border-radius: 9px;
+  padding: 7px 10px;
+  margin-bottom: 2px;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
 }
 
 .tour-tips-icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1.2;
   flex-shrink: 0;
 }
 
 .tour-tips-content {
-  font-size: 0.81rem;
+  font-size: 0.74rem;
   color: #78350F;
-  line-height: 1.4;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .tour-tips-content strong {
   display: block;
   font-weight: 800;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   color: #92400E;
 }
 
-/* 6. Sticky Modal Footer: Always Visible */
+/* 7. Sticky / Fixed Modal Footer */
 .tour-modal-footer {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 10px;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
   border-top: 1px solid #F1F5F9;
   flex-shrink: 0;
   position: sticky;
@@ -244,38 +276,27 @@
   z-index: 5;
 }
 
-.tour-btn-skip {
-  background: transparent;
-  border: none;
-  color: #64748B;
-  font-size: 0.84rem;
-  font-weight: 700;
-  padding: 8px 10px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tour-btn-skip:hover {
-  background: #F8FAFC;
-  color: #0F172A;
-}
-
-.tour-nav-controls {
+.tour-nav-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
 }
 
 .tour-btn-prev {
+  flex: 1;
+  min-height: 36px;
   background: #FFFFFF;
   border: 1.5px solid #CBD5E1;
   color: #334155;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  padding: 8px 16px;
-  border-radius: 12px;
+  padding: 6px 12px;
+  border-radius: 10px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
 }
 
@@ -292,18 +313,21 @@
 }
 
 .tour-btn-next {
+  flex: 1;
+  min-height: 36px;
   background: #0F766E;
   border: 1.5px solid #0F766E;
   color: #FFFFFF;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 800;
-  padding: 8px 20px;
-  border-radius: 12px;
+  padding: 6px 14px;
+  border-radius: 10px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+  justify-content: center;
+  gap: 5px;
+  box-shadow: 0 3px 10px rgba(15, 118, 110, 0.22);
   transition: all 0.2s ease;
 }
 
@@ -311,31 +335,55 @@
   background: #115E59;
   border-color: #115E59;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(15, 118, 110, 0.35);
+  box-shadow: 0 5px 14px rgba(15, 118, 110, 0.32);
 }
 
 .tour-btn-finish {
+  flex: 1;
+  min-height: 36px;
   background: linear-gradient(135deg, #0F766E 0%, #20B8AA 100%);
   border: none;
   color: #FFFFFF;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 800;
-  padding: 8px 20px;
-  border-radius: 12px;
+  padding: 6px 14px;
+  border-radius: 10px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 14px rgba(32, 184, 170, 0.35);
+  justify-content: center;
+  gap: 5px;
+  box-shadow: 0 3px 12px rgba(32, 184, 170, 0.32);
   transition: all 0.2s ease;
 }
 
 .tour-btn-finish:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(32, 184, 170, 0.45);
+  box-shadow: 0 5px 16px rgba(32, 184, 170, 0.42);
 }
 
-/* 7. Floating Tour Trigger Button on Home Page */
+.tour-btn-skip-bottom {
+  width: 100%;
+  min-height: 26px;
+  background: transparent;
+  border: none;
+  color: #64748B;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+  display: block;
+}
+
+.tour-btn-skip-bottom:hover {
+  color: #0F172A;
+  background: #F8FAFC;
+}
+
+/* 8. Floating Tour Trigger Button on Home Page */
 .tour-floating-trigger {
   position: fixed;
   bottom: 24px;
@@ -345,13 +393,13 @@
   color: #0F766E;
   border: 2px solid #5EEAD4;
   border-radius: 9999px;
-  padding: 10px 18px;
-  font-size: 0.875rem;
+  padding: 9px 16px;
+  font-size: 0.84rem;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  box-shadow: 0 10px 25px -5px rgba(15, 118, 110, 0.25), 0 0 0 1px rgba(0,0,0,0.05);
+  gap: 7px;
+  box-shadow: 0 8px 22px -4px rgba(15, 118, 110, 0.25), 0 0 0 1px rgba(0,0,0,0.05);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   animation: tour-float-bob 3s ease-in-out infinite;
@@ -360,8 +408,8 @@
 .tour-floating-trigger:hover {
   background: #F0FDFA;
   border-color: #20B8AA;
-  transform: translateY(-3px) scale(1.03);
-  box-shadow: 0 14px 28px -5px rgba(15, 118, 110, 0.35);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 24px -4px rgba(15, 118, 110, 0.32);
 }
 
 @keyframes tour-float-bob {
@@ -374,121 +422,151 @@
 }
 
 /* ==========================================================================
-   8. MOBILE RESPONSIVE ADAPTATION (Screen width <= 640px, e.g. 400x645px)
+   9. MOBILE RESPONSIVE ADAPTATION (Screen width <= 768px, e.g. 320px–430px)
+   Compact Smart Placement, Clear Vision of Highlighted Target
    ========================================================================== */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .tour-modal-card {
-    position: fixed !important;
-    bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
-    top: auto !important;
-    left: 12px !important;
-    right: 12px !important;
-    width: auto !important;
-    max-width: none !important;
-    max-height: calc(100dvh - 32px) !important;
-    max-height: calc(100vh - 32px) !important;
-    border-radius: 18px;
-    padding: 14px 14px 12px;
+    width: min(340px, calc(100vw - 20px)) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: min(48dvh, 320px) !important;
+    max-height: min(48vh, 320px) !important;
+    border-radius: 16px !important;
+    padding: 12px 13px 8px !important;
     box-shadow: 
-      0 16px 40px rgba(0, 0, 0, 0.38),
-      0 0 0 1px rgba(226, 232, 240, 0.95);
-    z-index: 100000;
+      0 16px 36px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(226, 232, 240, 0.95) !important;
   }
 
   .tour-modal-header {
     margin-bottom: 6px;
-  }
-
-  .tour-badge-pill {
-    padding: 3px 10px;
-    font-size: 0.74rem;
-  }
-
-  .tour-close-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 1rem;
-  }
-
-  .tour-progress-track {
-    height: 4px;
-    margin-bottom: 8px;
-  }
-
-  .tour-modal-body {
-    margin-bottom: 6px;
-    max-height: calc(100dvh - 170px);
-    max-height: calc(100vh - 170px);
-  }
-
-  .tour-title-wrap {
-    gap: 8px;
-    margin-bottom: 6px;
-  }
-
-  .tour-title-icon {
-    font-size: 1.15rem;
+    gap: 4px;
   }
 
   .tour-title {
-    font-size: 0.96rem;
-    line-height: 1.3;
+    font-size: 0.91rem;
+    line-height: 1.22;
+  }
+
+  .tour-title-icon {
+    font-size: 1.1rem;
+  }
+
+  .tour-close-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 0.82rem;
+  }
+
+  .tour-badge-pill {
+    padding: 2px 7px;
+    font-size: 0.68rem;
+  }
+
+  .tour-segments-track {
+    gap: 3px;
+    margin-top: 2px;
+  }
+
+  .tour-segment-bar {
+    height: 3px;
+  }
+
+  .tour-modal-body {
+    max-height: 110px;
+    margin-bottom: 6px;
+    padding-right: 2px;
   }
 
   .tour-description {
-    font-size: 0.81rem;
-    line-height: 1.45;
-    margin-bottom: 8px;
+    font-size: 0.78rem;
+    line-height: 1.38;
+    margin-bottom: 6px;
   }
 
   .tour-tips-box {
-    padding: 8px 10px;
-    margin-bottom: 4px;
-    border-radius: 10px;
-    gap: 8px;
+    padding: 6px 9px;
+    margin-bottom: 2px;
+    border-radius: 8px;
+    gap: 6px;
   }
 
   .tour-tips-icon {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
   }
 
   .tour-tips-content {
-    font-size: 0.75rem;
-    line-height: 1.35;
-  }
-
-  .tour-tips-content strong {
-    font-size: 0.75rem;
-    margin-bottom: 1px;
+    font-size: 0.71rem;
+    line-height: 1.3;
   }
 
   .tour-modal-footer {
-    padding-top: 8px;
-    gap: 6px;
-    background: #FFFFFF;
-  }
-
-  .tour-btn-skip {
-    font-size: 0.78rem;
-    padding: 6px 6px;
-  }
-
-  .tour-nav-controls {
-    gap: 6px;
+    padding-top: 6px;
+    gap: 2px;
   }
 
   .tour-btn-prev,
   .tour-btn-next,
   .tour-btn-finish {
-    font-size: 0.79rem;
-    padding: 6px 12px;
-    border-radius: 10px;
+    min-height: 34px;
+    font-size: 0.77rem;
+    padding: 5px 10px;
+    border-radius: 9px;
+  }
+
+  .tour-btn-skip-bottom {
+    font-size: 0.72rem;
+    min-height: 22px;
+    padding: 2px 4px;
   }
 
   .tour-floating-trigger {
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     right: 14px;
     padding: 7px 12px;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
   }
+}
+
+/* Extra small devices (<= 360px, e.g. iPhone SE, Galaxy S) */
+@media (max-width: 360px) {
+  .tour-modal-card {
+    width: calc(100vw - 16px) !important;
+    padding: 10px 11px 7px !important;
+  }
+
+  .tour-title {
+    font-size: 0.88rem;
+  }
+
+  .tour-description {
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .tour-modal-body {
+    max-height: 95px;
+  }
+
+  .tour-btn-prev,
+  .tour-btn-next,
+  .tour-btn-finish {
+    font-size: 0.75rem;
+    padding: 5px 8px;
+  }
+}
+
+/* ==========================================================================
+   10. THIRD-PARTY BADGE / NETLIFY FLOATING WIDGET ANTI-COLLISION
+   Lower or suppress floating badge when tour modal is active
+   ========================================================================== */
+body:has(.tour-overlay-container) #netlify-badge,
+body:has(.tour-overlay-container) .netlify-badge,
+body:has(.tour-overlay-container) [class*="netlify-badge"],
+body:has(.tour-overlay-container) [id*="netlify-badge"],
+body:has(.tour-overlay-container) a[href*="netlify.com"],
+body:has(.tour-overlay-container) iframe[src*="netlify"] {
+  z-index: 1 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }

@@ -81,22 +81,24 @@ export default function OnboardingTour() {
     return () => window.removeEventListener('open-onboarding-tour', handleOpenTour);
   }, []);
 
-  // 4. Update Target Spotlight and Modal Position
+  // 4. Update Target Spotlight and Modal Position with Smart Placement
   const updatePositions = useCallback(() => {
     if (!isOpen || !currentStep) return;
 
+    const isMobile = window.innerWidth <= 768;
     const targetSelector =
-      window.innerWidth < 1024 && currentStep.mobileTarget
+      isMobile && currentStep.mobileTarget
         ? currentStep.mobileTarget
         : currentStep.target;
 
     const targetEl = document.querySelector(targetSelector);
     if (!targetEl) {
-      // Fallback gracefully to viewport center if target is not found
       setSpotlightRect(null);
+      const modalW = isMobile ? Math.min(340, window.innerWidth - 24) : 380;
+      const modalH = isMobile ? 260 : 300;
       setModalPosition({
-        top: Math.max(20, (window.innerHeight - 340) / 2),
-        left: Math.max(16, (window.innerWidth - 420) / 2),
+        top: Math.max(16, (window.innerHeight - modalH) / 2),
+        left: Math.max(12, (window.innerWidth - modalW) / 2),
       });
       return;
     }
@@ -104,14 +106,16 @@ export default function OnboardingTour() {
     const rect = targetEl.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) {
       setSpotlightRect(null);
+      const modalW = isMobile ? Math.min(340, window.innerWidth - 24) : 380;
+      const modalH = isMobile ? 260 : 300;
       setModalPosition({
-        top: Math.max(20, (window.innerHeight - 340) / 2),
-        left: Math.max(16, (window.innerWidth - 420) / 2),
+        top: Math.max(16, (window.innerHeight - modalH) / 2),
+        left: Math.max(12, (window.innerWidth - modalW) / 2),
       });
       return;
     }
 
-    const padding = 8;
+    const padding = isMobile ? 6 : 8;
     const spotTop = Math.max(0, rect.top - padding);
     const spotLeft = Math.max(0, rect.left - padding);
     const spotWidth = Math.min(window.innerWidth - spotLeft, rect.width + padding * 2);
@@ -124,46 +128,77 @@ export default function OnboardingTour() {
       height: spotHeight,
     });
 
-    // Mobile uses fixed bottom sheet CSS positioning
-    const isMobile = window.innerWidth <= 640;
-    if (isMobile) {
-      return;
-    }
-
-    // Desktop: calculate dynamic smart modal placement
     const modalEl = modalRef.current;
-    const modalWidth = modalEl?.offsetWidth || Math.min(440, window.innerWidth - 32);
-    const modalHeight = modalEl?.offsetHeight || 340;
+    const modalWidth = modalEl?.offsetWidth || (isMobile ? Math.min(340, window.innerWidth - 24) : 380);
+    const modalHeight = modalEl?.offsetHeight || (isMobile ? 260 : 300);
 
-    // Horizontal centering relative to target, clamped to screen edges
-    const idealLeft = spotLeft + (spotWidth / 2) - (modalWidth / 2);
-    let clampedLeft = Math.max(16, Math.min(idealLeft, window.innerWidth - modalWidth - 16));
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
 
-    // Vertical placement
-    let idealTop = spotTop + spotHeight + 14; // Default to below target
-    const spaceBelow = window.innerHeight - (spotTop + spotHeight + 14);
-    const spaceAbove = spotTop - 14;
+    // Available vertical clearances
+    const spaceAbove = spotTop - 12;
+    const spaceBelow = viewportHeight - (spotTop + spotHeight + 12);
 
-    if (currentStep.preferredPosition === 'top' && spaceAbove >= modalHeight) {
-      idealTop = spotTop - modalHeight - 14;
-    } else if (spaceBelow < modalHeight && spaceAbove >= modalHeight) {
-      idealTop = spotTop - modalHeight - 14;
-    } else if (spaceBelow < modalHeight && spaceAbove < modalHeight) {
-      // Both top and bottom space are constrained: check side placement to avoid covering target
-      const spaceRight = window.innerWidth - (spotLeft + spotWidth + 24);
-      const spaceLeft = spotLeft - 24;
-      if (spaceRight >= modalWidth) {
-        clampedLeft = spotLeft + spotWidth + 16;
-        idealTop = Math.max(16, Math.min(spotTop, window.innerHeight - modalHeight - 16));
-      } else if (spaceLeft >= modalWidth) {
-        clampedLeft = spotLeft - modalWidth - 16;
-        idealTop = Math.max(16, Math.min(spotTop, window.innerHeight - modalHeight - 16));
+    let idealTop: number;
+
+    // 1. Determine ideal vertical placement based on preferredPosition and space
+    if (currentStep.preferredPosition === 'bottom') {
+      if (spaceBelow >= modalHeight) {
+        idealTop = spotTop + spotHeight + 10;
+      } else if (spaceAbove >= modalHeight) {
+        idealTop = spotTop - modalHeight - 10;
       } else {
-        idealTop = Math.max(16, window.innerHeight - modalHeight - 20);
+        idealTop = spaceBelow >= spaceAbove ? viewportHeight - modalHeight - 12 : 12;
+      }
+    } else if (currentStep.preferredPosition === 'top') {
+      if (spaceAbove >= modalHeight) {
+        idealTop = spotTop - modalHeight - 10;
+      } else if (spaceBelow >= modalHeight) {
+        idealTop = spotTop + spotHeight + 10;
+      } else {
+        idealTop = spaceAbove >= spaceBelow ? 12 : viewportHeight - modalHeight - 12;
+      }
+    } else {
+      // Default: below if space permits, otherwise above
+      if (spaceBelow >= modalHeight) {
+        idealTop = spotTop + spotHeight + 10;
+      } else if (spaceAbove >= modalHeight) {
+        idealTop = spotTop - modalHeight - 10;
+      } else {
+        idealTop = spaceBelow >= spaceAbove ? viewportHeight - modalHeight - 12 : 12;
       }
     }
 
-    const clampedTop = Math.max(16, Math.min(idealTop, window.innerHeight - modalHeight - 16));
+    // 2. Strict Anti-Collision Check: Ensure modal never obscures spotlight
+    const isOverlapping = idealTop < (spotTop + spotHeight) && (idealTop + modalHeight) > spotTop;
+    if (isOverlapping) {
+      if (spaceBelow >= modalHeight) {
+        idealTop = spotTop + spotHeight + 8;
+      } else if (spaceAbove >= modalHeight) {
+        idealTop = spotTop - modalHeight - 8;
+      } else if (!isMobile) {
+        const spaceRight = viewportWidth - (spotLeft + spotWidth + 16);
+        const spaceLeft = spotLeft - 16;
+        if (spaceRight >= modalWidth) {
+          idealTop = Math.max(12, Math.min(spotTop, viewportHeight - modalHeight - 12));
+        } else if (spaceLeft >= modalWidth) {
+          idealTop = Math.max(12, Math.min(spotTop, viewportHeight - modalHeight - 12));
+        }
+      } else {
+        idealTop = spaceBelow >= spaceAbove ? viewportHeight - modalHeight - 10 : 10;
+      }
+    }
+
+    // 3. Horizontal Alignment
+    let clampedLeft: number;
+    if (isMobile) {
+      clampedLeft = Math.max(12, (viewportWidth - modalWidth) / 2);
+    } else {
+      const idealLeft = spotLeft + (spotWidth / 2) - (modalWidth / 2);
+      clampedLeft = Math.max(16, Math.min(idealLeft, viewportWidth - modalWidth - 16));
+    }
+
+    const clampedTop = Math.max(10, Math.min(idealTop, viewportHeight - modalHeight - 10));
 
     setModalPosition({
       top: clampedTop,
@@ -175,38 +210,35 @@ export default function OnboardingTour() {
   useEffect(() => {
     if (!isOpen || !currentStep) return;
 
+    const isMobile = window.innerWidth <= 768;
     const targetSelector =
-      window.innerWidth < 1024 && currentStep.mobileTarget
+      isMobile && currentStep.mobileTarget
         ? currentStep.mobileTarget
         : currentStep.target;
 
     const targetEl = document.querySelector(targetSelector);
     if (targetEl) {
-      const isMobile = window.innerWidth <= 768;
-      if (isMobile) {
-        // Mobile offset: align target comfortably right below the mobile top bar (64px + 16px safety margin = 80px)
-        // This ensures the element is never hidden behind the top bar and never obstructed by the bottom sheet popup.
-        const elemRect = targetEl.getBoundingClientRect();
-        const currentScrollY = window.scrollY || window.pageYOffset;
-        const elemTopAbs = elemRect.top + currentScrollY;
-        const targetScrollY = Math.max(0, elemTopAbs - 80);
+      const elemRect = targetEl.getBoundingClientRect();
+      const currentScrollY = window.scrollY || window.pageYOffset;
+      const elemTopAbs = elemRect.top + currentScrollY;
+      const elemHeight = elemRect.height;
+      const viewportHeight = window.innerHeight;
 
-        window.scrollTo({
-          top: targetScrollY,
-          left: 0,
-          behavior: 'smooth',
-        });
+      let targetScrollY: number;
+
+      if (currentStep.preferredPosition === 'top') {
+        const bottomOffset = isMobile ? Math.min(viewportHeight - elemHeight - 20, 360) : 320;
+        targetScrollY = Math.max(0, elemTopAbs - bottomOffset);
       } else {
-        // Desktop: scroll so that either top or bottom of target has sufficient clearance for the modal
-        const scrollBlock =
-          currentStep.preferredPosition === 'top' ? 'end' : 'start';
-
-        targetEl.scrollIntoView({
-          behavior: 'smooth',
-          block: scrollBlock,
-          inline: 'nearest',
-        });
+        const topOffset = isMobile ? 70 : 85;
+        targetScrollY = Math.max(0, elemTopAbs - topOffset);
       }
+
+      window.scrollTo({
+        top: targetScrollY,
+        left: 0,
+        behavior: 'smooth',
+      });
     }
 
     // Re-evaluate positions after smooth scroll starts and finishes
@@ -260,7 +292,6 @@ export default function OnboardingTour() {
   }, [isOpen, handleSkip, handleNext, handlePrev]);
 
   const isLastStep = currentStepIndex === totalSteps - 1;
-  const progressPercent = Math.round(((currentStepIndex + 1) / totalSteps) * 100);
 
   return (
     <>
@@ -304,7 +335,7 @@ export default function OnboardingTour() {
             <div className="tour-backdrop" onClick={handleSkip} />
           )}
 
-          {/* Interactive Modal Pop-up */}
+          {/* Interactive Modal Pop-up with Smart Positioning */}
           <div
             ref={modalRef}
             className="tour-modal-card"
@@ -313,50 +344,62 @@ export default function OnboardingTour() {
               left: `${modalPosition.left}px`,
             }}
           >
-            {/* Header: Step Badge & Close Button */}
+            {/* Header: Title + Close Button, Step Label, and 7-Segment Progress Bar */}
             <div className="tour-modal-header">
-              <div className="tour-badge-pill">
-                <span>📍</span>
-                <span>{currentStep.stepBadge}</span>
+              {/* Top Row: Title and Close (X) */}
+              <div className="tour-header-title-bar">
+                <div className="tour-title-wrap">
+                  <span className="tour-title-icon" aria-hidden="true">
+                    {currentStep.icon}
+                  </span>
+                  <h3 id="tour-modal-title" className="tour-title">
+                    {currentStep.title}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  className="tour-close-btn"
+                  aria-label="Tutup dan lewati panduan tur"
+                  title="Tutup panduan (Esc)"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="tour-close-btn"
-                aria-label="Tutup dan lewati panduan tur"
-                title="Tutup panduan (Esc)"
-              >
-                ✕
-              </button>
-            </div>
 
-            {/* Horizontal Progress Bar */}
-            <div
-              className="tour-progress-track"
-              role="progressbar"
-              aria-valuenow={progressPercent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`Progress panduan ${progressPercent}%`}
-            >
+              {/* Step Label: Tur Fitur • Langkah X dari 7 */}
+              <div className="tour-step-label-row">
+                <span className="tour-badge-pill">
+                  Tur Fitur • Langkah {currentStepIndex + 1} dari {totalSteps}
+                </span>
+              </div>
+
+              {/* 7-Segment Horizontal Progress Bar */}
               <div
-                className="tour-progress-fill"
-                style={{ width: `${progressPercent}%` }}
-              />
+                className="tour-segments-track"
+                role="progressbar"
+                aria-valuenow={currentStepIndex + 1}
+                aria-valuemin={1}
+                aria-valuemax={totalSteps}
+                aria-label={`Langkah ${currentStepIndex + 1} dari ${totalSteps}`}
+              >
+                {TOUR_STEPS.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={`tour-segment-bar ${
+                      idx === currentStepIndex
+                        ? 'active'
+                        : idx < currentStepIndex
+                        ? 'completed'
+                        : ''
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* Scrollable Body Content (Only this part scrolls if height is constrained) */}
             <div className="tour-modal-body">
-              {/* Title & Icon */}
-              <div className="tour-title-wrap">
-                <span className="tour-title-icon" aria-hidden="true">
-                  {currentStep.icon}
-                </span>
-                <h3 id="tour-modal-title" className="tour-title">
-                  {currentStep.title}
-                </h3>
-              </div>
-
               {/* Short & Comprehensible Description */}
               <p className="tour-description">
                 {currentStep.description}
@@ -374,18 +417,9 @@ export default function OnboardingTour() {
               )}
             </div>
 
-            {/* Sticky Footer: Navigation Buttons (Always visible and never cut off) */}
+            {/* Sticky / Pinned Footer: Navigation Buttons */}
             <div className="tour-modal-footer">
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="tour-btn-skip"
-                title="Hentikan tutorial tur fitur"
-              >
-                Lewati Tur
-              </button>
-
-              <div className="tour-nav-controls">
+              <div className="tour-nav-row">
                 <button
                   type="button"
                   onClick={handlePrev}
@@ -393,7 +427,7 @@ export default function OnboardingTour() {
                   className="tour-btn-prev"
                   title="Menuju langkah sebelumnya"
                 >
-                  ← Kembali
+                  ← Sebelumnya
                 </button>
 
                 {isLastStep ? (
@@ -413,11 +447,20 @@ export default function OnboardingTour() {
                     className="tour-btn-next"
                     title="Menuju langkah berikutnya"
                   >
-                    <span>Lanjut</span>
+                    <span>Selanjutnya</span>
                     <span>→</span>
                   </button>
                 )}
               </div>
+
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="tour-btn-skip-bottom"
+                title="Hentikan tutorial tur fitur"
+              >
+                Lewati Tur
+              </button>
             </div>
           </div>
         </div>

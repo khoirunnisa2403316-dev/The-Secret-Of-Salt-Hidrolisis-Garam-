@@ -22,6 +22,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'beranda',
     target: '#beranda-hero-content',
+    mobileTarget: '.hero-title',
     title: 'Pusat Aktivitas Belajar Beranda 🏠',
     stepBadge: 'Langkah 1 dari 7',
     icon: '🏠',
@@ -95,6 +96,6 @@ export const TOUR_STEPS: TourStep[] = [
     description:
       'Pantau perkembangan belajar dan hasil evaluasimu secara berkala melalui Dashboard Siswa. Di sini kamu dapat melihat profil siswa, ringkasan progres capaian materi, riwayat nilai kuis pilihan ganda, serta status penilaian esai dari guru pengampu.',
     tip: 'Masuk (login) dengan akun Google atau akun siswa kamu agar seluruh progres belajar dan riwayat evaluasi tersimpan permanen di cloud!',
-    preferredPosition: 'top',
+    preferredPosition: 'bottom',
   },
 ];
