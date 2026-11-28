@@ -451,3 +451,52 @@
   gap: 0.75rem;
   margin-top: 0.5rem;
 }
+
+/* ==========================================================================
+   RESPONSIVE MOBILE STYLES FOR QUIZ ESAI
+   ========================================================================== */
+@media (max-width: 640px) {
+  .quiz-esai-header {
+    padding: 1.15rem 1rem;
+    border-radius: 1rem;
+  }
+
+  .quiz-esai-title {
+    font-size: 1.25rem;
+  }
+
+  .quiz-esai-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .quiz-esai-tab-btn {
+    min-width: 76px;
+    padding: 0.5rem 0.35rem;
+    font-size: 0.75rem;
+  }
+
+  .quiz-esai-footer-actions {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+  }
+
+  .quiz-esai-btn-back,
+  .quiz-esai-btn-submit-all {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .quiz-esai-modal-box {
+    padding: 1.25rem;
+    margin: 0.75rem;
+  }
+
+  .quiz-esai-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .quiz-esai-modal-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}

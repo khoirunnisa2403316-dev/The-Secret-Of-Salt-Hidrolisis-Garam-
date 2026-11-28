@@ -13,9 +13,23 @@
 }
 
 .quiz-container {
+  width: 100%;
   max-width: 1040px;
   margin: 0 auto;
   padding: 0 24px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .quiz-container {
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .quiz-container {
+    padding: 0 12px;
+  }
 }
 
 /* Header */
@@ -153,7 +167,7 @@
   padding-top: 16px;
   border-top: 1px solid var(--color-border);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 16px;
   font-size: 0.9rem;
   color: var(--color-text-body);
@@ -262,6 +276,17 @@
 @media (max-width: 680px) {
   .palette-grid {
     grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 380px) {
+  .palette-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+  }
+  .palette-btn {
+    height: 38px;
+    font-size: 0.85rem;
   }
 }
 
@@ -952,5 +977,144 @@
 
 .btn-modal-danger:hover {
   background: #f07466;
+}
+
+/* ==========================================================================
+   RESPONSIVE MOBILE STYLES FOR QUIZ MODULE 1
+   ========================================================================== */
+@media (max-width: 768px) {
+  .quiz-section {
+    padding: 40px 0 60px;
+  }
+
+  .quiz-header {
+    margin-bottom: 24px;
+  }
+
+  .quiz-title {
+    font-size: 1.6rem;
+  }
+
+  .quiz-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .quiz-rules-box,
+  .quiz-nav-card {
+    padding: 16px 14px;
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+  }
+
+  .progress-bar-track {
+    width: 120px;
+  }
+
+  .question-workspace-card {
+    padding: 22px 16px 26px;
+    border-radius: var(--radius-lg);
+  }
+
+  .question-text {
+    font-size: 1.02rem;
+    line-height: 1.55;
+  }
+
+  .option-item {
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .option-text {
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .quiz-session-meta {
+    gap: 8px;
+  }
+
+  .meta-chip {
+    font-size: 0.76rem;
+    padding: 4px 10px;
+  }
+
+  .question-workspace-card {
+    padding: 16px 12px 20px;
+    border-radius: 16px;
+  }
+
+  .question-top-bar {
+    gap: 8px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+  }
+
+  .q-number-badge {
+    font-size: 0.95rem;
+  }
+
+  .q-concept-tag {
+    font-size: 0.72rem;
+    padding: 3px 8px;
+  }
+
+  .question-text {
+    font-size: 0.95rem;
+  }
+
+  .option-item {
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+
+  .option-key-badge {
+    width: 30px;
+    height: 30px;
+    font-size: 0.85rem;
+  }
+
+  .option-text {
+    font-size: 0.88rem;
+  }
+
+  .question-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .nav-btn-group,
+  .submission-btn-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-nav-step,
+  .btn-reset-draft,
+  .btn-submit-answer {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.85rem;
+    padding: 9px 12px;
+  }
+
+  .modal-confirm-box {
+    padding: 20px 16px;
+    margin: 12px;
+    border-radius: 16px;
+  }
+
+  .modal-confirm-actions {
+    flex-direction: column-reverse;
+  }
+
+  .btn-modal-cancel,
+  .btn-modal-danger {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
