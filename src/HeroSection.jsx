@@ -1,6 +1,37 @@
 import { useState } from 'react';
 
 export default function HeroSection({ onStartClick }) {
+  // Navigation handler for 3 learning goal buttons to connect directly to Materi Lengkap
+  const handleNavigateToMateri = (tabKey, saltType) => {
+    if (typeof window !== 'undefined') {
+      // 1. Dispatch custom event to switch to the corresponding tab in MateriHidrolisis
+      window.dispatchEvent(
+        new CustomEvent('switch-materi-tab', {
+          detail: {
+            tab: tabKey,
+            saltType: saltType,
+          },
+        })
+      );
+
+      // 2. Smoothly scroll to Materi Lengkap section with navbar height clearance
+      const targetEl = document.getElementById('materi-hidrolisis');
+      if (targetEl) {
+        const isMobile = window.innerWidth <= 768;
+        // On mobile, top bar is ~60px high, so offset by 75px to ensure section header and tabs are fully visible
+        // On desktop, 24px gives comfortable breathing room
+        const navOffset = isMobile ? 75 : 24;
+        const elementPosition = targetEl.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - navOffset;
+
+        window.scrollTo({
+          top: Math.max(0, offsetPosition),
+          behavior: 'smooth',
+        });
+      }
+    }
+  };
+
   // Interactive mini beaker salt state
   const [selectedSalt, setSelectedSalt] = useState('NH4Cl');
   const [temperature, setTemperature] = useState(25); // 25°C or 60°C
@@ -103,20 +134,38 @@ export default function HeroSection({ onStartClick }) {
             </p>
           </div>
 
-          {/* 3 Measurable Learning Goals (TP) */}
+          {/* 3 Measurable Learning Goals (TP) — Interactive navigation directly to Materi Lengkap */}
           <div className="hero-goals-row">
-            <div className="goal-item" title="Capaian Pembelajaran TP 1">
+            <button
+              type="button"
+              className="goal-item"
+              onClick={() => handleNavigateToMateri('jenis')}
+              title="Pelajari jenis-jenis garam dan asal pembentukan garam di Materi Lengkap"
+              aria-label="Menuju materi Identifikasi Asal Garam"
+            >
               <span className="goal-icon" aria-hidden="true">🎯</span>
               <span>1. Identifikasi Asal Garam</span>
-            </div>
-            <div className="goal-item" title="Capaian Pembelajaran TP 2 & 3">
+            </button>
+            <button
+              type="button"
+              className="goal-item"
+              onClick={() => handleNavigateToMateri('konsep')}
+              title="Pelajari reaksi kimia hidrolisis kation dan anion dengan molekul air di Materi Lengkap"
+              aria-label="Menuju materi Reaksi Ion dengan Air"
+            >
               <span className="goal-icon" aria-hidden="true">🔬</span>
               <span>2. Reaksi Ion dengan Air</span>
-            </div>
-            <div className="goal-item" title="Capaian Pembelajaran TP 4">
+            </button>
+            <button
+              type="button"
+              className="goal-item"
+              onClick={() => handleNavigateToMateri('kalkulator')}
+              title="Buka simulator kalkulator perhitungan pH garam interaktif di Materi Lengkap"
+              aria-label="Menuju Simulator Kalkulator pH"
+            >
               <span className="goal-icon" aria-hidden="true">📊</span>
               <span>3. Prediksi & Hitung pH</span>
-            </div>
+            </button>
           </div>
 
           {/* CTA Buttons per PRD 9.1 */}
