@@ -3,6 +3,8 @@
  * Compliant with PRD.md Bab 21, 23, 24, 29 & AGENTS.md
  */
 
+import type { EssayQuestionData } from '../data/soalEsaiHidrolisisGaram';
+
 export interface QuizOption {
   id: string; // "A" | "B" | "C" | "D" | "E"
   teks: string;
@@ -28,6 +30,32 @@ export interface SubmittedAnswer {
 }
 
 /**
+ * Essay Question Evaluation Types
+ */
+export interface EssayQuestionScore {
+  score: number; // 0 - 20
+  feedback?: string;
+}
+
+export interface EssayGradingHistoryEntry {
+  gradedAt: string;
+  gradedBy?: string;
+  totalEssayScore: number;
+  questionScores: Record<string, EssayQuestionScore>;
+  feedback?: string;
+}
+
+export interface EssayGradingResult {
+  status: 'pending' | 'graded'; // 'pending' = Menunggu Penilaian Guru, 'graded' = Selesai Dinilai
+  totalEssayScore: number; // 0 - 100
+  questionScores: Record<string, EssayQuestionScore>;
+  gradedBy?: string;
+  gradedAt?: string;
+  feedback?: string;
+  history?: EssayGradingHistoryEntry[];
+}
+
+/**
  * Active in-progress guest or authenticated quiz session
  */
 export interface GuestQuizSession {
@@ -35,11 +63,15 @@ export interface GuestQuizSession {
   guestSessionId: string;
   attemptId: string;
   questionVersion: string;
+  currentPhase?: 'pg' | 'essay'; // Current quiz phase (defaults to 'pg')
   draftAnswers: Record<string, string>; // questionId -> selected option before submit
   submittedAnswers: Record<string, SubmittedAnswer>; // questionId -> frozen response
   currentQuestionIndex: number;
+  essayAnswers?: Record<string, string>; // essayQuestionId -> student's answer text
+  essayGrading?: EssayGradingResult;
   status: 'in_progress' | 'completed';
-  score: number | null; // Final score 0 - 100 once completed; null while in draft/progress
+  score: number | null; // Final PG score 0 - 100 once completed; null while in draft/progress
+  finalCompositeScore?: number | null; // (0.5 * score) + (0.5 * essayScore) once graded
   startedAt: string;
   completedAt?: string | null;
 }
@@ -53,11 +85,15 @@ export interface QuizAttemptHistoryItem {
   questionVersion: string;
   totalQuestions: number;
   correctCount: number;
-  score: number;
+  score: number; // PG score (0 - 100)
+  essayAnswers?: Record<string, string>; // essay answers
+  essayGrading?: EssayGradingResult; // teacher grading status & scores
+  finalCompositeScore?: number | null; // composite 50% PG + 50% Essay
   startedAt: string;
   completedAt: string;
   answers: Record<string, SubmittedAnswer>;
   questionSnapshot?: QuizQuestion[];
+  essaySnapshot?: EssayQuestionData[];
 }
 
 /**
@@ -69,4 +105,3 @@ export interface StorageOperationResult<T> {
   error?: string;
   isStorageAvailable: boolean;
 }
-

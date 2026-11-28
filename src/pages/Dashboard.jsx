@@ -604,45 +604,83 @@ VITE_FIREBASE_APP_ID=1:1234567890:web:abcdef...`}
                   <tr className="border-b border-[#E2E8F0] text-[#64748B]">
                     <th className="py-2.5 px-3 font-semibold">Percobaan ID</th>
                     <th className="py-2.5 px-3 font-semibold">Tanggal Selesai</th>
-                    <th className="py-2.5 px-3 font-semibold">Butir Benar</th>
-                    <th className="py-2.5 px-3 font-semibold">Skor Akhir</th>
+                    <th className="py-2.5 px-3 font-semibold">Skor PG</th>
+                    <th className="py-2.5 px-3 font-semibold">Status Esai</th>
+                    <th className="py-2.5 px-3 font-semibold">Nilai Akhir</th>
                     <th className="py-2.5 px-3 font-semibold">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {quizHistory.map((item) => (
-                    <tr key={item.attemptId || item.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-[#164E63]">
-                        {item.attemptId ? item.attemptId.slice(0, 16) : 'att_m1'}
-                      </td>
-                      <td className="py-2.5 px-3 text-[#64748B]">
-                        {new Date(item.completedAt).toLocaleString('id-ID')}
-                      </td>
-                      <td className="py-2.5 px-3 font-medium">
-                        {item.correctCount} / {item.totalQuestions || 10}
-                      </td>
-                      <td className="py-2.5 px-3 font-extrabold">
-                        <span
-                          className={
-                            item.score >= 75 ? 'text-[#16A34A]' : 'text-[#DC2626]'
-                          }
-                        >
-                          {item.score}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            item.score >= 75
-                              ? 'bg-[#DCFCE7] text-[#16A34A]'
-                              : 'bg-[#FEE2E2] text-[#DC2626]'
-                          }`}
-                        >
-                          {item.score >= 75 ? 'Tuntas' : 'Perlu Penguatan'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {quizHistory.map((item) => {
+                    const hasEssay = Boolean(
+                      item.essayAnswers && Object.keys(item.essayAnswers).length > 0
+                    );
+                    const isGraded = item.essayGrading?.status === 'graded';
+                    const composite =
+                      typeof item.finalCompositeScore === 'number'
+                        ? item.finalCompositeScore
+                        : isGraded && item.essayGrading
+                        ? Math.round(
+                            0.5 * (item.score || 0) + 0.5 * (item.essayGrading.totalEssayScore || 0)
+                          )
+                        : null;
+                    const finalVal = composite !== null ? composite : item.score;
+
+                    return (
+                      <tr key={item.attemptId || item.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#164E63]">
+                          {item.attemptId ? item.attemptId.slice(0, 16) : 'att_m1'}
+                        </td>
+                        <td className="py-2.5 px-3 text-[#64748B]">
+                          {new Date(item.completedAt).toLocaleString('id-ID')}
+                        </td>
+                        <td className="py-2.5 px-3 font-medium">
+                          <strong>{item.score}</strong>
+                          <span className="text-[11px] text-[#64748B]"> ({item.correctCount}/{item.totalQuestions || 10})</span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          {!hasEssay ? (
+                            <span className="text-[11px] text-[#94A3B8]">Hanya PG</span>
+                          ) : isGraded && item.essayGrading ? (
+                            <div>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DCFCE7] text-[#16A34A]">
+                                ✓ {item.essayGrading.totalEssayScore}/100
+                              </span>
+                              {item.essayGrading.feedback && (
+                                <p className="text-[10px] text-[#059669] mt-0.5 italic line-clamp-1" title={item.essayGrading.feedback}>
+                                  "{item.essayGrading.feedback}"
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#D97706]">
+                              ⏳ Menunggu Guru
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 font-extrabold">
+                          {composite !== null ? (
+                            <span className={composite >= 75 ? 'text-[#16A34A]' : 'text-[#DC2626]'}>
+                              {composite}
+                            </span>
+                          ) : (
+                            <span className="text-[#64748B] text-xs">{item.score} (PG)</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              finalVal >= 75
+                                ? 'bg-[#DCFCE7] text-[#16A34A]'
+                                : 'bg-[#FEE2E2] text-[#DC2626]'
+                            }`}
+                          >
+                            {finalVal >= 75 ? 'Tuntas' : 'Perlu Penguatan'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
